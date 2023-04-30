@@ -66,7 +66,6 @@ void init()
 
 
   int i;
-
   for (i = 0; i < NUM_FILES; i++)
   {
     directory[i].in_use = 0;
@@ -91,12 +90,13 @@ void init()
         inodes[i].attribute = 0;
       }
     }
+  }
     int j;
     for (j = 0; j < NUM_BLOCKS; j++)
     {
       free_blocks[j] = 1;
     }
-  }
+    
 }
 
 //creating function df
