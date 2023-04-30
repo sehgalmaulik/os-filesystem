@@ -38,11 +38,14 @@ struct inode
 {
     short in_use;
     int32_t blocks[BLOCKS_PER_FILE];
+    uint8_t attribute;
 };
 
 struct directoryEntry *directory;
 struct inode *inodes;
 FILE *fp;
+char image_name[64];
+uint8_t image_open;
 
 
 //add all the functions here
@@ -66,6 +69,8 @@ void init()
         {
             inodes[i].blocks[j] = -1;
             inodes[i].in_use = 0;
+            inodes[i].attribute = 0;
+
         }
     }
 }
@@ -79,6 +84,48 @@ void createfs( char *filename )
     fclose(fp);
   
 }
+
+// LIST
+void list()
+{
+    int i;
+    int not_found = 1;
+    
+    for (i = 0; i < NUM_FILES; i++)
+    {
+        if (directory[i].in_use)
+        {   
+            not_found = 0;
+            char filename[65];
+            memset(filename, 0, 65);
+            strncpy(filename, directory[i].filename, strlen(directory[i].filename));
+            printf("%s\n", filename);
+        }
+    }
+
+    if (not_found)
+    {
+        printf("ERROR: No files found.\n");
+        
+    }
+}
+
+
+// SAVE
+void savefs()
+{
+    if (image_open == 0)
+    {
+        printf("ERROR: Disk image is not open.\n");
+    }
+
+    fp = fopen(image_name, "w");
+    fwrite(&data[0][0], BLOCK_SIZE, NUM_BLOCKS, fp);
+    memset(image_name, 0, 64);
+    fclose(fp);
+}
+
+
 
 
 
@@ -146,7 +193,6 @@ int main()
         continue;
     }
 
-
     // processs the filesystem commads
 
     // quit command
@@ -154,6 +200,23 @@ int main()
     {
       exit(0);
     }
+
+    if (strcmp("savefs", token[0]) == 0)
+    {
+        savefs();
+    }
+    
+    if (strcmp("list", token[0]) == 0)
+    {
+        if (!image_open)
+        {
+            printf("ERROR: Disk image is not opened\n");
+            continue;
+        }
+        list();
+    }
+
+    
 
     // createfs command - Creates a new filesystem image
     /*shall create a file system image file with the named provided by the user.
