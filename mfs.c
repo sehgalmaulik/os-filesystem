@@ -25,8 +25,6 @@ uint8_t data[NUM_BLOCKS][BLOCK_SIZE];
 
 uint8_t free_blocks[65536];
 
-uint8_t data[NUM_BLOCKS][BLOCK_SIZE];
-
 
 // directory 
 
@@ -123,6 +121,7 @@ void createfs(char* filename)
 
   memset(data, 0, NUM_BLOCKS * BLOCK_SIZE);
   image_open = 1;
+
 
   fclose(fp);
 
@@ -285,6 +284,72 @@ void closefs()
   memset(image_name, 0, 64);
 }
 
+void encrypt(char* filename, uint8_t cipher)
+{
+    size_t i; //changing from int to size_t as also used as index
+    int file_found = 0;
+    int32_t file_inode = -1;
+
+    for (i = 0; i < NUM_FILES; i++)
+    {
+        if (directory[i].in_use)
+        {
+            if (strncmp(directory[i].filename, filename, strlen(filename)) == 0)
+            {
+                file_found = 1;
+                file_inode = directory[i].inode;
+                break;
+            }
+        }
+    }
+
+    if (!file_found)
+    {
+        printf("ERROR: File not found\n");
+        return;
+    }
+
+    struct inode* inode_ptr = &inodes[file_inode];
+    int file_size = 0;
+
+    for (i = 0; i < BLOCKS_PER_FILE; i++)
+    {
+        if (inode_ptr->blocks[i] != -1)
+        {
+            file_size += BLOCK_SIZE;
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    uint8_t buffer[file_size];
+    int buffer_index = 0;
+
+    for (i = 0; i < BLOCKS_PER_FILE && inode_ptr->blocks[i] != -1; i++)
+    {
+        int32_t block_num = inode_ptr->blocks[i];
+        memcpy(buffer + buffer_index, data[block_num], BLOCK_SIZE);
+        buffer_index += BLOCK_SIZE;
+    }
+
+    for (i = 0; i < file_size; i++)
+    {
+        buffer[i] ^= cipher;
+    }
+
+    buffer_index = 0;
+
+    for (i = 0; i < BLOCKS_PER_FILE && inode_ptr->blocks[i] != -1; i++)
+    {
+        int32_t block_num = inode_ptr->blocks[i];
+        memcpy(data[block_num], buffer + buffer_index, BLOCK_SIZE);
+        buffer_index += BLOCK_SIZE;
+    }
+}
+
+
 int main()
 {
 
@@ -348,22 +413,15 @@ int main()
     {
       continue;
     }
-
-    // processs the filesystem commads
-
-    // quit command
-    if (strcmp(token[0], "quit") == 0)
+    else if (strcmp(token[0], "quit") == 0)
     {
       exit(0);
     }
-
-    if (strcmp("savefs", token[0]) == 0)
+    else if (strcmp("savefs", token[0]) == 0)
     {
       savefs();
     }
-
-
-    if (strcmp("open", token[0]) == 0)
+    else if (strcmp("open", token[0]) == 0)
     {
       if (token[1] == NULL)
       {
@@ -372,14 +430,11 @@ int main()
       }
       openfs(token[1]);;
     }
-
-    if (strcmp("close", token[0]) == 0)
+    else if (strcmp("close", token[0]) == 0)
     {
       closefs();;
     }
-
-
-    if (strcmp("list", token[0]) == 0)
+    else if (strcmp("list", token[0]) == 0)
     {
       if (!image_open)
       {
@@ -395,7 +450,7 @@ int main()
     If the file name is not provided a message shall be printed: ERROR:
     createfs: Filename not provided*/
 
-    if (strcmp(token[0], "createfs") == 0)
+    else if (strcmp(token[0], "createfs") == 0)
     {
       if (token[1] == NULL)
       {
@@ -406,12 +461,12 @@ int main()
         createfs(token[1]);
       }
     }
-    if (strcmp(token[0], "df") == 0)
+    else if (strcmp(token[0], "df") == 0)
     {
       df();
     }
 
-    if (strcmp(token[0], "open") == 0)
+    else if (strcmp(token[0], "open") == 0)
     {
       if (token[1] == NULL)
       {
@@ -426,7 +481,7 @@ int main()
     // reading the number of bytes
     // read <filename> <starting byte> <number of bytes>
     // Print <number of bytes> bytes from the file, in hexadecimal, starting at <starting byte>
-    if (strcmp("read", token[0]) == 0)
+    else if (strcmp("read", token[0]) == 0)
     {
       if (!image_open)
       {
@@ -454,6 +509,36 @@ int main()
       readfile(token[1], starting_byte, num_bytes);
     }
 
+    // XOR is symmetric, so encrypting and decrypting are the same operation
+    else if (strcmp(token[0], "encrypt") == 0 || strcmp(token[0], "decrypt") == 0) 
+    {
+      if (!image_open)
+      {
+        printf("ERROR: Disk image is not opened\n");
+        continue;
+      } 
+      
+      if (token[1] == NULL)
+      {
+        printf("ERROR: No filename specified\n");
+      }
+      else if (token[2] == NULL)
+      {
+        printf("ERROR: No cipher specified\n");
+      }
+      else
+      {
+        uint8_t cipher_converted = (uint8_t)strtol(token[2], NULL, 16);
+        encrypt(token[1], cipher_converted);
+
+      }
+    }
+    else 
+    {
+      printf("ERROR: Command not found\n");
+    }
+
+
     // Cleanup allocated memory
     for (int i = 0; i < MAX_NUM_ARGUMENTS; i++)
     {
@@ -466,6 +551,8 @@ int main()
     free(head_ptr);
 
   }
+
+  
 
   free(command_string);
 
