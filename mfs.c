@@ -71,28 +71,19 @@ void init()
     memset(directory[i].filename, 0, 64);
 
     int j;
-    for (j = 0; j < BLOCKS_PER_FILE; j++)
+    for (j = 0; j < NUM_BLOCKS; j++)
     {
       inodes[i].blocks[j] = -1;
       inodes[i].in_use = 0;
       inodes[i].attribute = 0;
-
-      memset(directory[i].filename, 0, 64);
-
-      int j;
-      for (j = 0; j < BLOCKS_PER_FILE; j++)
-      {
-        inodes[i].blocks[j] = -1;
-        inodes[i].in_use = 0;
-        inodes[i].attribute = 0;
-      }
     }
+  
   }
-  // int j;
-  // for (j = 0; j < NUM_BLOCKS; j++)
-  // {
-  //   free_blocks[j] = 1;
-  // }
+  int j;
+  for (j = 0; j < NUM_BLOCKS; j++)
+  {
+    free_blocks[j] = 1;
+  }
 
   directory[0].in_use = 1;
   strncpy(directory[0].filename, "file.txt", strlen("file.txt"));
