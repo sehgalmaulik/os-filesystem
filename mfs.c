@@ -19,6 +19,7 @@
 #define MAX_COMMAND_SIZE 255 // The maximum command-line size
 #define MAX_NUM_ARGUMENTS 5
 #define FIRST_DATA_BLOCK 300
+#define MAX_FILENAME_SIZE 64
 
 uint8_t data[NUM_BLOCKS][BLOCK_SIZE];
 
@@ -73,7 +74,6 @@ void init()
       inodes[i].in_use = 0;
       inodes[i].attribute = 0;
     }
-
   }
   int j;
   for (j = 0; j < NUM_BLOCKS; j++)
@@ -84,11 +84,25 @@ void init()
   directory[0].in_use = 1;
   strncpy(directory[0].filename, "file.txt", strlen("file.txt"));
 }
+
+//find free block
+int find_free_block()
+{
+  for (int i = FIRST_DATA_BLOCK; i < NUM_BLOCKS; i++)
+  {
+    if (free_blocks[i])
+    {
+      return i;
+    }
+  }
+  return -1;
+}
+
 void insert(char *filename)
 {
-  if (strlen(filename) > 63)
+  if (strlen(filename) > MAX_FILENAME_SIZE - 1)
   {
-    printf("insert error: File name too long.\n");
+    printf("ERROR: File name too long.\n");
     return;
   }
 
@@ -104,23 +118,16 @@ void insert(char *filename)
 
   if (inode_id == -1)
   {
-    printf("insert error: Directory is full.\n");
+    printf("ERROR: Directory is full.\n");
     return;
   }
 
   int32_t file_block = -1;
-  for (int i = FIRST_DATA_BLOCK; i < NUM_BLOCKS; i++)
-  {
-    if (free_blocks[i])
-    {
-      file_block = i;
-      break;
-    }
-  }
+  file_block = find_free_block();
 
   if (file_block == -1)
   {
-    printf("insert error: Not enough disk space.\n");
+    printf("ERROR: Not enough disk space.\n");
     return;
   }
 
@@ -177,7 +184,6 @@ void list(int h, int a)
 
   printf("%d  h:\n", h);
   printf("%d  a:\n", a);
-
 
   for (i = 0; i < NUM_FILES; i++)
   {
@@ -516,7 +522,7 @@ int main()
       int h = 0;
       int a = 0;
 
-      // list [-h] [-a]   Checking if -h is given. if -a is also given, then 
+      // list [-h] [-a]   Checking if -h is given. if -a is also given, then
 
       // printing the attributes as well
       if (token[1] != NULL)
@@ -615,6 +621,10 @@ int main()
         uint8_t cipher_converted = (uint8_t)strtol(token[2], NULL, 16);
         encrypt(token[1], cipher_converted);
       }
+    }
+    else if (strcmp(token[0], "insert") == 0)
+    {
+      insert(token[1]);
     }
     else
     {
