@@ -309,6 +309,9 @@ void readfile(char *filename, int starting_byte, int num_bytes)
   struct inode *inode_ptr = &inodes[file_inode];
   int file_size = inode_ptr->attribute;
 
+  printf ("File size: %d\n", file_size);
+
+
   if (num_bytes <= 0 || starting_byte + num_bytes > file_size)
   {
     printf("ERROR: Invalid number of bytes.\n");
@@ -318,6 +321,8 @@ void readfile(char *filename, int starting_byte, int num_bytes)
   int block_index = starting_byte / BLOCK_SIZE;
   int block_offset = starting_byte % BLOCK_SIZE;
   int remaining_bytes = num_bytes;
+
+
 
   while (remaining_bytes > 0 && block_index < BLOCKS_PER_FILE)
   {
