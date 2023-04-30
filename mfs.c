@@ -77,7 +77,7 @@ void init()
       inodes[i].in_use = 0;
       inodes[i].attribute = 0;
     }
-  
+
   }
   int j;
   for (j = 0; j < NUM_BLOCKS; j++)
@@ -125,9 +125,6 @@ void list(int h, int a)
 {
   int i;
   int not_found = 1;
-  printf("%d  h:\n", h);
-  printf("%d  a:\n", a);
-    
 
   for (i = 0; i < NUM_FILES; i++)
   {
@@ -136,7 +133,7 @@ void list(int h, int a)
 
       if (h && (directory[i].filename[0] == '.' && directory[i].filename[1] != '\0'))
       {
-        
+
         not_found = 0;
         printf("%s", directory[i].filename);
 
@@ -159,7 +156,7 @@ void list(int h, int a)
 
         if (a)
         {
-          
+
           printf("\t");
           int j;
           for (j = 7; j >= 0; j--)
@@ -175,7 +172,7 @@ void list(int h, int a)
 
   if (not_found)
   {
-    printf("ERROR: No files found.\n");
+    printf("list: No files found.\n");
   }
 }
 
@@ -464,7 +461,7 @@ int main()
       }
       int h = 0;
       int a = 0;
-      
+
       // list [-h] [-a]   Checking if -h is given. if -a is also given, then 
       // printing the attributes as well
       if (token[1] != NULL)
@@ -473,7 +470,7 @@ int main()
         {
           h = 1;
         }
-        else if(strcmp("-a", token[1]) == 0)
+        else if (strcmp("-a", token[1]) == 0)
         {
           a = 1;
         }
