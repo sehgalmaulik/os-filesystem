@@ -453,6 +453,30 @@ int main()
       readfile(token[1], starting_byte, num_bytes);
     }
 
+    // XOR is symmetric, so encrypting and decrypting are the same operation
+    if (strcmp(token[0], "encrypt") == 0 || strcmp(token[0], "decrypt") == 0) 
+    {
+      if (!image_open)
+      {
+        printf("ERROR: Disk image is not opened\n");
+        continue;
+      } 
+      
+      if (token[1] == NULL)
+      {
+        printf("ERROR: No filename specified\n");
+      }
+      else if (token[2] == NULL)
+      {
+        printf("ERROR: No cipher specified\n");
+      }
+      else
+      {
+        encrypt(token[1], token[2]);
+      }
+    }
+
+
     // Cleanup allocated memory
     for (int i = 0; i < MAX_NUM_ARGUMENTS; i++)
     {
