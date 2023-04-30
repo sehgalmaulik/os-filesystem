@@ -122,6 +122,7 @@ void createfs(char* filename)
   memset(data, 0, NUM_BLOCKS * BLOCK_SIZE);
   image_open = 1;
 
+
   fclose(fp);
 
 }
