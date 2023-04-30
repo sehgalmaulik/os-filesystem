@@ -91,12 +91,12 @@ void init()
       }
     }
   }
-    int j;
-    for (j = 0; j < NUM_BLOCKS; j++)
-    {
-      free_blocks[j] = 1;
-    }
-    
+  int j;
+  for (j = 0; j < NUM_BLOCKS; j++)
+  {
+    free_blocks[j] = 1;
+  }
+
 }
 
 //creating function df
@@ -151,7 +151,9 @@ void list()
     printf("ERROR: No files found.\n");
 
   }
-  
+
+
+
 }
 
 
@@ -357,10 +359,10 @@ int main()
 
     if (strcmp("savefs", token[0]) == 0)
     {
-        savefs();
+      savefs();
     }
 
-    
+
     if (strcmp("open", token[0]) == 0)
     {
       if (token[1] == NULL)
@@ -386,7 +388,6 @@ int main()
       }
       list();
     }
-
 
 
     // createfs command - Creates a new filesystem image
