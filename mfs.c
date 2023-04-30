@@ -125,13 +125,18 @@ void list(int h, int a)
 {
   int i;
   int not_found = 1;
+  printf("%d  h:\n", h);
+  printf("%d  a:\n", a);
+    
 
   for (i = 0; i < NUM_FILES; i++)
   {
     if (directory[i].in_use)
     {
+
       if (h && (directory[i].filename[0] == '.' && directory[i].filename[1] != '\0'))
       {
+        
         not_found = 0;
         printf("%s", directory[i].filename);
 
@@ -154,6 +159,7 @@ void list(int h, int a)
 
         if (a)
         {
+          
           printf("\t");
           int j;
           for (j = 7; j >= 0; j--)
@@ -212,8 +218,6 @@ void openfs(char* filename)
   fclose(fp);
 
 }
-
-
 
 void readfile(char* filename, int starting_byte, int num_bytes)
 {
@@ -468,6 +472,10 @@ int main()
         if (strcmp("-h", token[1]) == 0)
         {
           h = 1;
+        }
+        else if(strcmp("-a", token[1]) == 0)
+        {
+          a = 1;
         }
 
         if (token[2] != NULL)
