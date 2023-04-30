@@ -20,7 +20,6 @@
 #define MAX_NUM_ARGUMENTS 5 
 #define FIRST_DATA_BLOCK 300
 
-
 uint8_t data[NUM_BLOCKS][BLOCK_SIZE];
 
 uint8_t free_blocks[65536];
@@ -89,11 +88,14 @@ void init()
       }
     }
   }
-  int j;
-  for (j = 0; j < NUM_BLOCKS; j++)
-  {
-    free_blocks[j] = 1;
-  }
+  // int j;
+  // for (j = 0; j < NUM_BLOCKS; j++)
+  // {
+  //   free_blocks[j] = 1;
+  // }
+
+  directory[0].in_use = 1;
+  strncpy(directory[0].filename, "file.txt", strlen("file.txt"));
 
 }
 
@@ -150,9 +152,6 @@ void list()
     printf("ERROR: No files found.\n");
 
   }
-
-
-
 }
 
 
@@ -162,18 +161,30 @@ void savefs()
   if (image_open == 0)
   {
     printf("ERROR: Disk image is not open.\n");
-
+    return;
   }
 
-  fp = fopen(image_name, "w");
+  fp = fopen(image_name, "r+");
+  if (fp == NULL)
+  {
+    printf("ERROR: Could not open file for writing.\n");
+    return;
+  }
+
   fwrite(&data[0][0], BLOCK_SIZE, NUM_BLOCKS, fp);
+  fflush(fp);
   memset(image_name, 0, 64);
   fclose(fp);
 }
 
 void openfs(char* filename)
 {
-  fp = fopen(filename, "w");
+  fp = fopen(filename, "r+");
+  if (fp == NULL)
+  {
+    printf("ERROR: File not found.\n");
+    return;
+  }
 
   strncpy(image_name, filename, strlen(filename));
 
@@ -195,7 +206,6 @@ void readfile(char* filename, int starting_byte, int num_bytes)
 
   for (i = 0; i < NUM_FILES; i++)
   {
-    printf("Debug: i=%d, in_use=%d\n", i, directory[i].in_use);
     if (directory[i].in_use)
     {
       if (strncmp(directory[i].filename, filename, strlen(filename)) == 0)
@@ -219,19 +229,8 @@ void readfile(char* filename, int starting_byte, int num_bytes)
     return;
   }
 
-  int file_size = 0;
   struct inode* inode_ptr = &inodes[file_inode];
-  for (i = 0; i < BLOCKS_PER_FILE; i++)
-  {
-    if (inode_ptr->blocks[i] != -1)
-    {
-      file_size += BLOCK_SIZE;
-    }
-    else
-    {
-      break;
-    }
-  }
+  int file_size = inode_ptr->attribute;
 
   if (num_bytes <= 0 || starting_byte + num_bytes > file_size)
   {
@@ -269,7 +268,6 @@ void readfile(char* filename, int starting_byte, int num_bytes)
   {
     printf("ERROR: Could not read the entire specified range.\n");
   }
-
 }
 
 void closefs()
@@ -286,67 +284,67 @@ void closefs()
 
 void encrypt(char* filename, uint8_t cipher)
 {
-    size_t i; //changing from int to size_t as also used as index
-    int file_found = 0;
-    int32_t file_inode = -1;
+  size_t i; //changing from int to size_t as also used as index
+  int file_found = 0;
+  int32_t file_inode = -1;
 
-    for (i = 0; i < NUM_FILES; i++)
+  for (i = 0; i < NUM_FILES; i++)
+  {
+    if (directory[i].in_use)
     {
-        if (directory[i].in_use)
-        {
-            if (strncmp(directory[i].filename, filename, strlen(filename)) == 0)
-            {
-                file_found = 1;
-                file_inode = directory[i].inode;
-                break;
-            }
-        }
+      if (strncmp(directory[i].filename, filename, strlen(filename)) == 0)
+      {
+        file_found = 1;
+        file_inode = directory[i].inode;
+        break;
+      }
     }
+  }
 
-    if (!file_found)
+  if (!file_found)
+  {
+    printf("ERROR: File not found\n");
+    return;
+  }
+
+  struct inode* inode_ptr = &inodes[file_inode];
+  int file_size = 0;
+
+  for (i = 0; i < BLOCKS_PER_FILE; i++)
+  {
+    if (inode_ptr->blocks[i] != -1)
     {
-        printf("ERROR: File not found\n");
-        return;
+      file_size += BLOCK_SIZE;
     }
-
-    struct inode* inode_ptr = &inodes[file_inode];
-    int file_size = 0;
-
-    for (i = 0; i < BLOCKS_PER_FILE; i++)
+    else
     {
-        if (inode_ptr->blocks[i] != -1)
-        {
-            file_size += BLOCK_SIZE;
-        }
-        else
-        {
-            break;
-        }
+      break;
     }
+  }
 
-    uint8_t buffer[file_size];
-    int buffer_index = 0;
+  uint8_t buffer[file_size];
+  int buffer_index = 0;
 
-    for (i = 0; i < BLOCKS_PER_FILE && inode_ptr->blocks[i] != -1; i++)
-    {
-        int32_t block_num = inode_ptr->blocks[i];
-        memcpy(buffer + buffer_index, data[block_num], BLOCK_SIZE);
-        buffer_index += BLOCK_SIZE;
-    }
+  for (i = 0; i < BLOCKS_PER_FILE && inode_ptr->blocks[i] != -1; i++)
+  {
+    int32_t block_num = inode_ptr->blocks[i];
+    memcpy(buffer + buffer_index, data[block_num], BLOCK_SIZE);
+    buffer_index += BLOCK_SIZE;
+  }
 
-    for (i = 0; i < file_size; i++)
-    {
-        buffer[i] ^= cipher;
-    }
+  for (i = 0; i < file_size; i++)
+  {
+    buffer[i] ^= cipher;
+  }
 
-    buffer_index = 0;
+  buffer_index = 0;
 
-    for (i = 0; i < BLOCKS_PER_FILE && inode_ptr->blocks[i] != -1; i++)
-    {
-        int32_t block_num = inode_ptr->blocks[i];
-        memcpy(data[block_num], buffer + buffer_index, BLOCK_SIZE);
-        buffer_index += BLOCK_SIZE;
-    }
+  for (i = 0; i < BLOCKS_PER_FILE && inode_ptr->blocks[i] != -1; i++)
+  {
+    int32_t block_num = inode_ptr->blocks[i];
+    memcpy(data[block_num], buffer + buffer_index, BLOCK_SIZE);
+    buffer_index += BLOCK_SIZE;
+  }
 }
 
 
@@ -355,6 +353,7 @@ int main()
 
   char* command_string = (char*)malloc(MAX_COMMAND_SIZE);
   FILE* fp = NULL;
+  init();
   while (1)
   {
     // Print out the msh prompt
@@ -483,41 +482,28 @@ int main()
     // Print <number of bytes> bytes from the file, in hexadecimal, starting at <starting byte>
     else if (strcmp("read", token[0]) == 0)
     {
-      if (!image_open)
+      if (token_count < 4)
       {
-        printf("ERROR: Disk image is not ted\n");
+        printf("ERROR: Invalid command syntax.\n");
         continue;
       }
 
-      if (token[1] == NULL)
-      {
-        printf("ERROR: No filename specified\n");
-        continue;
-      }
-
-      // Check if any argument is missing 
-      if (token[2] == NULL || token[3] == NULL)
-      {
-
-        printf("ERROR: Missing arguments\n");
-        continue;
-      }
-
+      char* filename = token[1];
       int starting_byte = atoi(token[2]);
       int num_bytes = atoi(token[3]);
 
-      readfile(token[1], starting_byte, num_bytes);
+      readfile(filename, starting_byte, num_bytes);
     }
 
     // XOR is symmetric, so encrypting and decrypting are the same operation
-    else if (strcmp(token[0], "encrypt") == 0 || strcmp(token[0], "decrypt") == 0) 
+    else if (strcmp(token[0], "encrypt") == 0 || strcmp(token[0], "decrypt") == 0)
     {
       if (!image_open)
       {
         printf("ERROR: Disk image is not opened\n");
         continue;
-      } 
-      
+      }
+
       if (token[1] == NULL)
       {
         printf("ERROR: No filename specified\n");
@@ -533,7 +519,7 @@ int main()
 
       }
     }
-    else 
+    else
     {
       printf("ERROR: Command not found\n");
     }
@@ -551,8 +537,6 @@ int main()
     free(head_ptr);
 
   }
-
-  
 
   free(command_string);
 
