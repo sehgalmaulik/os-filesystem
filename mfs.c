@@ -18,9 +18,13 @@
 #define WHITESPACE " \t\n" // We want to split our command line up into tokens
 #define MAX_COMMAND_SIZE 255 // The maximum command-line size
 #define MAX_NUM_ARGUMENTS 5 
+#define FIRST_DATA_BLOCK 300
 
 
 uint8_t data [NUM_BLOCKS][BLOCK_SIZE];
+  
+uint8_t free_blocks[65536];
+
 
 // directory 
 
@@ -70,9 +74,29 @@ void init()
             inodes[i].blocks[j] = -1;
             inodes[i].in_use = 0;
             inodes[i].attribute = 0;
-
         }
     }
+    int j;
+    for(j =0; j < NUM_BLOCKS; j++)
+    {
+      free_blocks[j] = 1;
+    }
+}
+
+//creating function df
+void df()
+{
+  int j;
+  int count =0;
+
+  for(j = FIRST_DATA_BLOCK; j < NUM_BLOCKS; j++)
+  {
+    if(free_blocks[j])
+    {
+      count++;
+    }
+  }
+  printf("%d bytes free\n", count * BLOCK_SIZE);
 }
 
 void createfs( char *filename )
@@ -125,10 +149,30 @@ void savefs()
     fclose(fp);
 }
 
+void openfs(char *filename) 
+{
+  fp = fopen(filename, "w");
 
+  strncpy( image_name, filename, strlen(filename));
 
+  fread( &data[0][0], BLOCK_SIZE, NUM_BLOCKS, fp);
+  image_open =1;
 
+  fclose(fp);
+}
 
+void closefs()
+{
+  if(image_open == 0)
+  {
+    printf("ERROR: Disk image is not open.\n");
+    return;
+  }
+  fclose(fp);
+  image_open =0;
+  memset(image_name, 0, 64);
+}
+ 
 int main()
 {
 
@@ -205,6 +249,19 @@ int main()
     {
         savefs();
     }
+    if (strcmp("open", token[0]) == 0)
+    {
+        if(token[1] == NULL){
+            printf("ERROR: No filename specified\n");
+            continue;
+        }
+        openfs( token[1]);;
+    }
+
+    if (strcmp("close", token[0]) == 0)
+    {
+        closefs( );;
+    }
     
     if (strcmp("list", token[0]) == 0)
     {
@@ -233,6 +290,11 @@ int main()
       {
         createfs( token[1] );
       }
+    }
+
+    if( strcmp(token[0], "df")==0)
+    {
+      df();
     }
 
 
