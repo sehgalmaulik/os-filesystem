@@ -21,14 +21,12 @@
 #define FIRST_DATA_BLOCK 300
 
 
-<<<<<<< HEAD
-uint8_t data [NUM_BLOCKS][BLOCK_SIZE];
-  
+uint8_t data[NUM_BLOCKS][BLOCK_SIZE];
+
 uint8_t free_blocks[65536];
 
-=======
 uint8_t data[NUM_BLOCKS][BLOCK_SIZE];
->>>>>>> 0c0b0321ae8376ab657ef371cbbb3db90415a2e6
+
 
 // directory 
 
@@ -62,7 +60,7 @@ void init()
 {
   directory = (struct directoryEntry*)&data[0][0];
   inodes = (struct inode*)&data[20][0];
-  
+
   memset(image_name, 0, 64);
   image_open = 0;
 
@@ -83,42 +81,38 @@ void init()
       inodes[i].in_use = 0;
       inodes[i].attribute = 0;
 
-<<<<<<< HEAD
-        memset( directory[i].filename, 0, 64 );
+      memset(directory[i].filename, 0, 64);
 
-        int j;
-        for( j = 0; j < BLOCKS_PER_FILE; j++ )
-        {
-            inodes[i].blocks[j] = -1;
-            inodes[i].in_use = 0;
-            inodes[i].attribute = 0;
-        }
+      int j;
+      for (j = 0; j < BLOCKS_PER_FILE; j++)
+      {
+        inodes[i].blocks[j] = -1;
+        inodes[i].in_use = 0;
+        inodes[i].attribute = 0;
+      }
     }
     int j;
-    for(j =0; j < NUM_BLOCKS; j++)
+    for (j = 0; j < NUM_BLOCKS; j++)
     {
       free_blocks[j] = 1;
     }
+  }
 }
 
 //creating function df
 void df()
 {
   int j;
-  int count =0;
+  int count = 0;
 
-  for(j = FIRST_DATA_BLOCK; j < NUM_BLOCKS; j++)
+  for (j = FIRST_DATA_BLOCK; j < NUM_BLOCKS; j++)
   {
-    if(free_blocks[j])
+    if (free_blocks[j])
     {
       count++;
     }
   }
   printf("%d bytes free\n", count * BLOCK_SIZE);
-=======
-    }
-  }
->>>>>>> 0c0b0321ae8376ab657ef371cbbb3db90415a2e6
 }
 
 void createfs(char* filename)
@@ -160,13 +154,15 @@ void list()
 }
 
 
+
+
 // SAVE
 void savefs()
 {
   if (image_open == 0)
   {
     printf("ERROR: Disk image is not open.\n");
-    
+
   }
 
   fp = fopen(image_name, "w");
@@ -175,18 +171,21 @@ void savefs()
   fclose(fp);
 }
 
-<<<<<<< HEAD
-void openfs(char *filename) 
+void openfs(char* filename)
 {
   fp = fopen(filename, "w");
 
-  strncpy( image_name, filename, strlen(filename));
+  strncpy(image_name, filename, strlen(filename));
 
-  fread( &data[0][0], BLOCK_SIZE, NUM_BLOCKS, fp);
-  image_open =1;
+  fread(&data[0][0], BLOCK_SIZE, NUM_BLOCKS, fp);
+  image_open = 1;
 
   fclose(fp);
-=======
+
+}
+
+
+
 void readfile(char* filename, int starting_byte, int num_bytes)
 {
   int i;
@@ -196,6 +195,7 @@ void readfile(char* filename, int starting_byte, int num_bytes)
 
   for (i = 0; i < NUM_FILES; i++)
   {
+    printf("Debug: i=%d, in_use=%d\n", i, directory[i].in_use);
     if (directory[i].in_use)
     {
       if (strncmp(directory[i].filename, filename, strlen(filename)) == 0)
@@ -270,21 +270,20 @@ void readfile(char* filename, int starting_byte, int num_bytes)
     printf("ERROR: Could not read the entire specified range.\n");
   }
 
->>>>>>> 0c0b0321ae8376ab657ef371cbbb3db90415a2e6
 }
 
 void closefs()
 {
-  if(image_open == 0)
+  if (image_open == 0)
   {
     printf("ERROR: Disk image is not open.\n");
     return;
   }
   fclose(fp);
-  image_open =0;
+  image_open = 0;
   memset(image_name, 0, 64);
 }
- 
+
 int main()
 {
 
@@ -359,35 +358,25 @@ int main()
 
     if (strcmp("savefs", token[0]) == 0)
     {
-<<<<<<< HEAD
         savefs();
     }
+
+    
     if (strcmp("open", token[0]) == 0)
     {
-        if(token[1] == NULL){
-            printf("ERROR: No filename specified\n");
-            continue;
-        }
-        openfs( token[1]);;
+      if (token[1] == NULL)
+      {
+        printf("ERROR: No filename specified\n");
+        continue;
+      }
+      openfs(token[1]);;
     }
 
     if (strcmp("close", token[0]) == 0)
     {
-        closefs( );;
+      closefs();;
     }
-    
-    if (strcmp("list", token[0]) == 0)
-    {
-        if (!image_open)
-        {
-            printf("ERROR: Disk image is not opened\n");
-            continue;
-        }
-        list();
-=======
-      savefs();
->>>>>>> 0c0b0321ae8376ab657ef371cbbb3db90415a2e6
-    }
+
 
     if (strcmp("list", token[0]) == 0)
     {
@@ -417,14 +406,23 @@ int main()
         createfs(token[1]);
       }
     }
-
-<<<<<<< HEAD
-    if( strcmp(token[0], "df")==0)
+    if (strcmp(token[0], "df") == 0)
     {
       df();
     }
 
-=======
+    if (strcmp(token[0], "open") == 0)
+    {
+      if (token[1] == NULL)
+      {
+        printf("ERROR: No filename specified\n");
+      }
+      else
+      {
+        openfs(token[1]);
+      }
+    }
+
     // reading the number of bytes
     // read <filename> <starting byte> <number of bytes>
     // Print <number of bytes> bytes from the file, in hexadecimal, starting at <starting byte>
@@ -453,31 +451,7 @@ int main()
       int starting_byte = atoi(token[2]);
       int num_bytes = atoi(token[3]);
 
-      // Check if the file exists
-      // int i;
-      // int file_found = 0;
-      // for (i = 0; i < NUM_FILES; i++)
-      // {
-      //   if (directory[i].in_use)
-      //   {
-      //     if (strcmp(directory[i].filename, token[1] == 0))
-      //     {
-      //       file_found = 1;
-      //       break;
-      //     }
-      //   }
-      // }
-
-      // if (!file_found)
-      // {
-      //   printf("ERROR: File not found\n");
-      // }
-
-      // // call the read function
       readfile(token[1], starting_byte, num_bytes);
->>>>>>> 0c0b0321ae8376ab657ef371cbbb3db90415a2e6
-
-
     }
 
     // Cleanup allocated memory
