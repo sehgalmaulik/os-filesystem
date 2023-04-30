@@ -130,7 +130,7 @@ void createfs(char* filename)
 }
 
 // LIST
-void list()
+void list(int h, int a)
 {
   int i;
   int not_found = 1;
@@ -139,21 +139,48 @@ void list()
   {
     if (directory[i].in_use)
     {
-      not_found = 0;
-      char filename[65];
-      memset(filename, 0, 65);
-      strncpy(filename, directory[i].filename, strlen(directory[i].filename));
-      printf("%s\n", filename);
+      if (h && (directory[i].filename[0] == '.' && directory[i].filename[1] != '\0'))
+      {
+        not_found = 0;
+        printf("%s", directory[i].filename);
+
+        if (a)
+        {
+          printf("\t");
+          int j;
+          for (j = 7; j >= 0; j--)
+          {
+            printf("%u", (inodes[directory[i].inode].attribute >> j) & 1);
+          }
+        }
+
+        printf("\n");
+      }
+      else if (!h && (directory[i].filename[0] != '.' || directory[i].filename[1] == '\0'))
+      {
+        not_found = 0;
+        printf("%s", directory[i].filename);
+
+        if (a)
+        {
+          printf("\t");
+          int j;
+          for (j = 7; j >= 0; j--)
+          {
+            printf("%u", (inodes[directory[i].inode].attribute >> j) & 1);
+          }
+        }
+
+        printf("\n");
+      }
     }
   }
 
   if (not_found)
   {
     printf("ERROR: No files found.\n");
-
   }
 }
-
 
 // SAVE
 void savefs()
@@ -440,7 +467,28 @@ int main()
         printf("ERROR: Disk image is not opened\n");
         continue;
       }
-      list();
+      int h = 0;
+      int a = 0;
+      
+      // list [-h] [-a]   Checking if -h is given. if -a is also given, then 
+      // printing the attributes as well
+      if (token[1] != NULL)
+      {
+        if (strcmp("-h", token[1]) == 0)
+        {
+          h = 1;
+        }
+
+        if (token[2] != NULL)
+        {
+          if (strcmp("-a", token[2]) == 0)
+          {
+            a = 1;
+          }
+        }
+      }
+
+      list(h, a);
     }
 
 
