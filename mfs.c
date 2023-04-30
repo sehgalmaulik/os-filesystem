@@ -1,4 +1,4 @@
-// Team X86 FTW 
+// Team X86 FTW
 
 #define _GNU_SOURCE
 
@@ -15,17 +15,16 @@
 #define NUM_BLOCKS 65536
 #define BLOCKS_PER_FILE 1024
 #define NUM_FILES 256
-#define WHITESPACE " \t\n" // We want to split our command line up into tokens
+#define WHITESPACE " \t\n"   // We want to split our command line up into tokens
 #define MAX_COMMAND_SIZE 255 // The maximum command-line size
-#define MAX_NUM_ARGUMENTS 5 
+#define MAX_NUM_ARGUMENTS 5
 #define FIRST_DATA_BLOCK 300
 
 uint8_t data[NUM_BLOCKS][BLOCK_SIZE];
 
 uint8_t free_blocks[65536];
 
-
-// directory 
+// directory
 
 struct directoryEntry
 {
@@ -33,7 +32,6 @@ struct directoryEntry
   short in_use;
   int32_t inode;
 };
-
 
 // inode
 
@@ -44,23 +42,21 @@ struct inode
   uint8_t attribute;
 };
 
-struct directoryEntry* directory;
-struct inode* inodes;
-FILE* fp;
+struct directoryEntry *directory;
+struct inode *inodes;
+FILE *fp;
 char image_name[64];
 uint8_t image_open;
-
 
 //add all the functions here
 
 void init()
 {
-  directory = (struct directoryEntry*)&data[0][0];
-  inodes = (struct inode*)&data[20][0];
+  directory = (struct directoryEntry *)&data[0][0];
+  inodes = (struct inode *)&data[20][0];
 
   memset(image_name, 0, 64);
   image_open = 0;
-
 
   int i;
   for (i = 0; i < NUM_FILES; i++)
@@ -87,7 +83,62 @@ void init()
 
   directory[0].in_use = 1;
   strncpy(directory[0].filename, "file.txt", strlen("file.txt"));
+}
+void insert(char *filename)
+{
+  if (strlen(filename) > 63)
+  {
+    printf("insert error: File name too long.\n");
+    return;
+  }
 
+  int32_t inode_id = -1;
+  for (int i = 0; i < NUM_FILES; i++)
+  {
+    if (!directory[i].in_use)
+    {
+      inode_id = i;
+      break;
+    }
+  }
+
+  if (inode_id == -1)
+  {
+    printf("insert error: Directory is full.\n");
+    return;
+  }
+
+  int32_t file_block = -1;
+  for (int i = FIRST_DATA_BLOCK; i < NUM_BLOCKS; i++)
+  {
+    if (free_blocks[i])
+    {
+      file_block = i;
+      break;
+    }
+  }
+
+  if (file_block == -1)
+  {
+    printf("insert error: Not enough disk space.\n");
+    return;
+  }
+
+  struct directoryEntry *new_entry = &directory[inode_id];
+  strncpy(new_entry->filename, filename, strlen(filename));
+  new_entry->in_use = 1;
+  new_entry->inode = inode_id;
+
+  struct inode *new_inode = &inodes[inode_id];
+  new_inode->in_use = 1;
+  new_inode->blocks[0] = file_block;
+
+  free_blocks[file_block] = 0;
+
+  for (int i = 1; i < BLOCKS_PER_FILE; i++)
+  {
+    new_inode->blocks[i] = -1;
+  }
 }
 
 //creating function df
@@ -106,7 +157,7 @@ void df()
   printf("%d bytes free\n", count * BLOCK_SIZE);
 }
 
-void createfs(char* filename)
+void createfs(char *filename)
 {
   fp = fopen(filename, "w+");
 
@@ -115,9 +166,7 @@ void createfs(char* filename)
   memset(data, 0, NUM_BLOCKS * BLOCK_SIZE);
   image_open = 1;
 
-
   fclose(fp);
-
 }
 
 // LIST
@@ -125,6 +174,10 @@ void list(int h, int a)
 {
   int i;
   int not_found = 1;
+
+  printf("%d  h:\n", h);
+  printf("%d  a:\n", a);
+
 
   for (i = 0; i < NUM_FILES; i++)
   {
@@ -198,7 +251,7 @@ void savefs()
   fclose(fp);
 }
 
-void openfs(char* filename)
+void openfs(char *filename)
 {
   fp = fopen(filename, "r+");
   if (fp == NULL)
@@ -213,10 +266,9 @@ void openfs(char* filename)
   image_open = 1;
 
   fclose(fp);
-
 }
 
-void readfile(char* filename, int starting_byte, int num_bytes)
+void readfile(char *filename, int starting_byte, int num_bytes)
 {
   int i;
   int file_found = 0;
@@ -248,7 +300,7 @@ void readfile(char* filename, int starting_byte, int num_bytes)
     return;
   }
 
-  struct inode* inode_ptr = &inodes[file_inode];
+  struct inode *inode_ptr = &inodes[file_inode];
   int file_size = inode_ptr->attribute;
 
   if (num_bytes <= 0 || starting_byte + num_bytes > file_size)
@@ -301,7 +353,7 @@ void closefs()
   memset(image_name, 0, 64);
 }
 
-void encrypt(char* filename, uint8_t cipher)
+void encrypt(char *filename, uint8_t cipher)
 {
   size_t i; //changing from int to size_t as also used as index
   int file_found = 0;
@@ -326,7 +378,7 @@ void encrypt(char* filename, uint8_t cipher)
     return;
   }
 
-  struct inode* inode_ptr = &inodes[file_inode];
+  struct inode *inode_ptr = &inodes[file_inode];
   int file_size = 0;
 
   for (i = 0; i < BLOCKS_PER_FILE; i++)
@@ -366,12 +418,11 @@ void encrypt(char* filename, uint8_t cipher)
   }
 }
 
-
 int main()
 {
 
-  char* command_string = (char*)malloc(MAX_COMMAND_SIZE);
-  FILE* fp = NULL;
+  char *command_string = (char *)malloc(MAX_COMMAND_SIZE);
+  FILE *fp = NULL;
   init();
   while (1)
   {
@@ -383,32 +434,33 @@ int main()
     // This while command will wait here until the user
     // inputs something since fgets returns NULL when there
     // is no input
-    while (!fgets(command_string, MAX_COMMAND_SIZE, stdin));
+    while (!fgets(command_string, MAX_COMMAND_SIZE, stdin))
+      ;
 
     /* Parse input */
-    char* token[MAX_NUM_ARGUMENTS];
+    char *token[MAX_NUM_ARGUMENTS];
 
     for (int i = 0; i < MAX_NUM_ARGUMENTS; i++)
     {
       token[i] = NULL;
     }
 
-    int   token_count = 0;
+    int token_count = 0;
 
     // Pointer to point to the token
     // parsed by strsep
-    char* argument_ptr = NULL;
+    char *argument_ptr = NULL;
 
-    char* working_string = strdup(command_string);
+    char *working_string = strdup(command_string);
 
     // we are going to move the working_string pointer so
     // keep track of its original value so we can deallocate
     // the correct amount at the end
-    char* head_ptr = working_string;
+    char *head_ptr = working_string;
 
     // Tokenize the input strings with whitespace used as the delimiter
     while (((argument_ptr = strsep(&working_string, WHITESPACE)) != NULL) &&
-      (token_count < MAX_NUM_ARGUMENTS))
+           (token_count < MAX_NUM_ARGUMENTS))
     {
       token[token_count] = strndup(argument_ptr, MAX_COMMAND_SIZE);
       if (strlen(token[token_count]) == 0)
@@ -422,9 +474,9 @@ int main()
     // \TODO Remove this for loop and replace with your filesystem functionality
 
     // int token_index  = 0;
-    // for( token_index = 0; token_index < token_count; token_index ++ ) 
+    // for( token_index = 0; token_index < token_count; token_index ++ )
     // {
-    //   printf("token[%d] = %s\n", token_index, token[token_index] );  
+    //   printf("token[%d] = %s\n", token_index, token[token_index] );
     // }
 
     if (token[0] == NULL)
@@ -446,11 +498,13 @@ int main()
         printf("ERROR: No filename specified\n");
         continue;
       }
-      openfs(token[1]);;
+      openfs(token[1]);
+      ;
     }
     else if (strcmp("close", token[0]) == 0)
     {
-      closefs();;
+      closefs();
+      ;
     }
     else if (strcmp("list", token[0]) == 0)
     {
@@ -463,6 +517,7 @@ int main()
       int a = 0;
 
       // list [-h] [-a]   Checking if -h is given. if -a is also given, then 
+
       // printing the attributes as well
       if (token[1] != NULL)
       {
@@ -486,7 +541,6 @@ int main()
 
       list(h, a);
     }
-
 
     // createfs command - Creates a new filesystem image
     /*shall create a file system image file with the named provided by the user.
@@ -532,7 +586,7 @@ int main()
         continue;
       }
 
-      char* filename = token[1];
+      char *filename = token[1];
       int starting_byte = atoi(token[2]);
       int num_bytes = atoi(token[3]);
 
@@ -560,14 +614,12 @@ int main()
       {
         uint8_t cipher_converted = (uint8_t)strtol(token[2], NULL, 16);
         encrypt(token[1], cipher_converted);
-
       }
     }
     else
     {
       printf("ERROR: Command not found\n");
     }
-
 
     // Cleanup allocated memory
     for (int i = 0; i < MAX_NUM_ARGUMENTS; i++)
@@ -579,12 +631,9 @@ int main()
     }
 
     free(head_ptr);
-
   }
 
   free(command_string);
 
   return 0;
-
-
 }
