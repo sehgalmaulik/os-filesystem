@@ -68,7 +68,7 @@ void init()
   memset(image_name, 0, 64);
   image_open = 0;
 
-  int i;
+  int i, j, k;
   for (i = 0; i < NUM_FILES; i++)
   {
     directory[i].in_use = 0;
@@ -77,18 +77,34 @@ void init()
 
     memset(directory[i].filename, 0, 64);
 
-    int j;
-    for (j = 0; j < NUM_BLOCKS; j++)
+    for (j = 0; j < BLOCKS_PER_FILE; j++)
     {
       inodes[i].blocks[j] = -1;
       inodes[i].in_use = 0;
       inodes[i].attribute = 0;
     }
   }
-  int j;
+
   for (j = 0; j < NUM_BLOCKS; j++)
   {
     free_blocks[j] = 1;
+  }
+
+  // Mark used inodes and blocks as not free
+  for (i = 0; i < NUM_FILES; i++)
+  {
+    if (directory[i].in_use) {
+      int inode_idx = directory[i].inode;
+      free_inodes[inode_idx] = 0;
+      for (j = 0; j < BLOCKS_PER_FILE; j++)
+      {
+        int block_idx = inodes[inode_idx].blocks[j];
+        if (block_idx != -1)
+        {
+          free_blocks[block_idx] = 0;
+        }
+      }
+    }
   }
 
   // directory[0].in_use = 1;
@@ -577,12 +593,8 @@ void delete(char* filename)
   }
 
   directory[i].in_use = 0;
-  directory[i].inode = -1;
 
   inodes[file_inode].in_use =0;
-  inodes[file_inode].attribute = 0;
-
-  //free_inodes[file_inode] = -1;
 
   int j;
   for(j = 0; j < BLOCKS_PER_FILE; j++)
@@ -590,15 +602,10 @@ void delete(char* filename)
     if(inodes[file_inode].blocks[j] != -1)
     {
       free_blocks[inodes[file_inode].blocks[j]] = 1;
-      inodes[file_inode].blocks[j] = -1;
+      // inodes[file_inode].blocks[j] = -1;
     }
   }
-
-  free_inodes[file_inode] = 1;
-  // inodes[file_inode].in_use = 0;
-  // inodes[file_inode].attribute = 0;
 }
-
 
 //a function to undelete a file from the file system
 void undelete(char* filename)
@@ -607,41 +614,44 @@ void undelete(char* filename)
   int file_found = 0;
   int32_t file_inode = -1;
 
+  // Find the deleted file in the directory
   for(i =0; i < NUM_FILES; i++)
   {
-    if(directory[i].in_use)
+    if(strcmp(directory[i].filename, filename) == 0)
     {
-      if(strcmp(directory[i].filename, filename) ==0)
-      {
-        file_found = 1;
-        file_inode = directory[i].inode;
-        break;
-      }
+      printf("%d \n", directory[i].inode);
+      file_found = 1;
+      file_inode = directory[i].inode;
+      break;
     }
   }
+
   if (!file_found)
   {
-    printf("ERROR: File not found\n");
+    printf("ERROR: File not found.\n");
+    return;
+  }
+
+  // Check if the file is already in use
+  if (inodes[file_inode].in_use)
+  {
+    printf("ERROR: File is not deleted.\n");
     return;
   }
 
   directory[i].in_use = 1;
-  directory[i].inode = file_inode;
-  free_inodes[file_inode] = 1;
+  inodes[file_inode].in_use = 1;
 
-  int j;
-  for(j = 0; j < BLOCKS_PER_FILE; j++)
+  // Mark all blocks used by the file as in use
+  for (int j = 0; j < BLOCKS_PER_FILE; j++)
   {
-    if(inodes[file_inode].blocks[j] != -1)
+    if (inodes[file_inode].blocks[j] != -1)
     {
-      free_blocks[inodes[file_inode].blocks[j]] = 1;
+      free_blocks[inodes[file_inode].blocks[j]] = 0;
     }
   }
 
-  inodes[file_inode].in_use = 1;
-  inodes[file_inode].attribute = 0;
 }
-
 
 void encrypt(char* filename, uint8_t cipher)
 {
