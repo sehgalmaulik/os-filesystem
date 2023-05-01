@@ -417,9 +417,8 @@ void list(int h, int a)
     if (directory[i].in_use)
     {
 
-      if (h && (directory[i].filename[0] == '.' && directory[i].filename[1] != '\0'))
+      if (h && inodes[directory[i].inode].attribute & 1)
       {
-
         not_found = 0;
         printf("%s", directory[i].filename);
 
@@ -435,7 +434,7 @@ void list(int h, int a)
 
         printf("\n");
       }
-      else if (!h && (directory[i].filename[0] != '.' || directory[i].filename[1] == '\0'))
+      else if (!h && !(inodes[directory[i].inode].attribute & 1))
       {
         not_found = 0;
         printf("%s", directory[i].filename);
@@ -592,6 +591,14 @@ void delete(char* filename)
     return;
   }
 
+  // #define READ_ONLY 0x2
+  // check if it read only
+  if (inodes[file_inode].attribute & READ_ONLY)
+  {
+    printf("ERROR: File is read only.\n");
+    return;
+  }
+
   directory[i].in_use = 0;
 
   inodes[file_inode].in_use =0;
@@ -720,6 +727,7 @@ void encrypt(char* filename, uint8_t cipher)
 
 void attrib(char* attrib_str, char* filename)
 {
+  printf("attrib: %s %s\n", attrib_str, filename);
   int i;
   int file_found = 0;
   int32_t file_inode = -1;
@@ -730,7 +738,7 @@ void attrib(char* attrib_str, char* filename)
   // Search the directory for the specified file
   for (i = 0; i < NUM_FILES; i++)
   {
-    if (directory[i].in_use && strncmp(directory[i].filename, filename, strlen(filename)) == 0)
+    if (strncmp(directory[i].filename, filename, strlen(filename)) == 0)
     {
       file_found = 1;
       file_inode = directory[i].inode;
@@ -1041,7 +1049,9 @@ int main()
         continue;
       }
 
-      attrib(token[2], token[1]);
+      printf("token[1] : %s\n", token[1]);
+      printf("token[2] : %s\n", token[2]);
+      attrib(token[1], token[2]);
     }
 
 
