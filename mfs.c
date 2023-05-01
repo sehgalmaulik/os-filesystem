@@ -19,8 +19,11 @@
 #define MAX_COMMAND_SIZE 255 // The maximum command-line size
 #define MAX_NUM_ARGUMENTS 5
 #define FIRST_DATA_BLOCK 300
+
 #define HIDDEN 0x1
 #define READ_ONLY 0x2
+
+#define MAX_FILENAME_SIZE 64
 
 uint8_t data[NUM_BLOCKS][BLOCK_SIZE];
 
@@ -75,7 +78,6 @@ void init()
       inodes[i].in_use = 0;
       inodes[i].attribute = 0;
     }
-
   }
   int j;
   for (j = 0; j < NUM_BLOCKS; j++)
@@ -87,11 +89,25 @@ void init()
   strncpy(directory[0].filename, "file.txt", strlen("file.txt"));
 }
 
-void insert(char* filename)
+
+//find free block
+int find_free_block()
 {
-  if (strlen(filename) > 63)
+  for (int i = FIRST_DATA_BLOCK; i < NUM_BLOCKS; i++)
   {
-    printf("insert error: File name too long.\n");
+    if (free_blocks[i])
+    {
+      return i;
+    }
+  }
+  return -1;
+}
+
+void insert(char *filename)
+{
+  if (strlen(filename) > MAX_FILENAME_SIZE - 1)
+  {
+    printf("ERROR: File name too long.\n");
     return;
   }
 
@@ -107,23 +123,16 @@ void insert(char* filename)
 
   if (inode_id == -1)
   {
-    printf("insert error: Directory is full.\n");
+    printf("ERROR: Directory is full.\n");
     return;
   }
 
   int32_t file_block = -1;
-  for (int i = FIRST_DATA_BLOCK; i < NUM_BLOCKS; i++)
-  {
-    if (free_blocks[i])
-    {
-      file_block = i;
-      break;
-    }
-  }
+  file_block = find_free_block();
 
   if (file_block == -1)
   {
-    printf("insert error: Not enough disk space.\n");
+    printf("ERROR: Not enough disk space.\n");
     return;
   }
 
@@ -302,6 +311,9 @@ void readfile(char* filename, int starting_byte, int num_bytes)
   struct inode* inode_ptr = &inodes[file_inode];
   int file_size = inode_ptr->attribute;
 
+  printf ("File size: %d\n", file_size);
+
+
   if (num_bytes <= 0 || starting_byte + num_bytes > file_size)
   {
     printf("ERROR: Invalid number of bytes.\n");
@@ -311,6 +323,8 @@ void readfile(char* filename, int starting_byte, int num_bytes)
   int block_index = starting_byte / BLOCK_SIZE;
   int block_offset = starting_byte % BLOCK_SIZE;
   int remaining_bytes = num_bytes;
+
+
 
   while (remaining_bytes > 0 && block_index < BLOCKS_PER_FILE)
   {
@@ -586,7 +600,7 @@ int main()
       int h = 0;
       int a = 0;
 
-      // list [-h] [-a]   Checking if -h is given. if -a is also given, then 
+      // list [-h] [-a]   Checking if -h is given. if -a is also given, then
 
       // printing the attributes as well
       if (token[1] != NULL)
@@ -686,6 +700,7 @@ int main()
         encrypt(token[1], cipher_converted);
       }
     }
+
     else if (strcmp("attrib", token[0]) == 0)
     {
       if (token[1] == NULL)
@@ -703,6 +718,12 @@ int main()
       attrib(token[2], token[1]);
     }
 
+
+    else if (strcmp(token[0], "insert") == 0)
+    {
+      insert(token[1]);
+    }
+    
     else
     {
       printf("ERROR: Command not found\n");
