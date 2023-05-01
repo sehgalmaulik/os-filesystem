@@ -18,7 +18,7 @@
 #define WHITESPACE " \t\n"   // We want to split our command line up into tokens
 #define MAX_COMMAND_SIZE 255 // The maximum command-line size
 #define MAX_NUM_ARGUMENTS 5
-#define FIRST_DATA_BLOCK 790
+#define FIRST_DATA_BLOCK 300
 
 #define HIDDEN 0x1
 #define READ_ONLY 0x2
@@ -27,8 +27,7 @@
 
 uint8_t data[NUM_BLOCKS][BLOCK_SIZE];
 
-uint8_t *free_blocks;
-uint8_t *free_inodes;
+uint8_t free_blocks[65536];
 
 // directory
 
@@ -61,10 +60,6 @@ void init()
   directory = (struct directoryEntry*)&data[0][0];
   inodes = (struct inode*)&data[20][0];
 
-  free_blocks = (uint8_t *)&data[277][0];
-  free_inodes = (uint8_t *)&data[19][0];
-
-
   memset(image_name, 0, 64);
   image_open = 0;
 
@@ -90,8 +85,8 @@ void init()
     free_blocks[j] = 1;
   }
 
-//   directory[0].in_use = 1;
-//   strncpy(directory[0].filename, "file.txt", strlen("file.txt"));
+  // directory[0].in_use = 1;
+  // strncpy(directory[0].filename, "file.txt", strlen("file.txt"));
 }
 
 
@@ -199,7 +194,7 @@ void df()
 
   for (j = FIRST_DATA_BLOCK; j < NUM_BLOCKS; j++)
   {
-    if (!free_blocks[j])
+    if (free_blocks[j])
     {
       count++;
     }
@@ -365,96 +360,9 @@ void readfile(char* filename, int starting_byte, int num_bytes)
       return;
     }
   }
+
+  printf("ERROR: File not found.\n");
 }
-
-//a function to delete a file from the file system
-void delete(char* filename)
-{
-  int i;
-  int file_found = 0;
-  int32_t file_inode = -1;
-
-  for(i = 0; i < NUM_FILES; i++)
-  {
-    if(directory[i].in_use)
-    {
-      if(strcmp(directory[i].filename, filename) == 0)
-      {
-        file_found = 1;
-        file_inode = directory[i].inode;
-        break;
-      }
-    }
-  }
-
-  if (!file_found)
-  {
-    printf("ERROR: File not found.\n");
-    return;
-  }
-
-  directory[i].in_use = 0;
-  directory[i].inode = -1;
-
-  int j;
-  for(j = 0; j < BLOCKS_PER_FILE; j++)
-  {
-    if(inodes[file_inode].blocks[j] != -1)
-    {
-      free_blocks[inodes[file_inode].blocks[j]] = 1;
-      inodes[file_inode].blocks[j] = -1;
-    }
-  }
-
-  inodes[file_inode].in_use = 0;
-  inodes[file_inode].attribute = 0;
-}
-
-
-//a function to undelete a file from the file system
-void undelete(char* filename)
-{
-  int i;
-  int file_found = 0;
-  int32_t file_inode = -1;
-
-  for(i =0; i < NUM_FILES; i++)
-  {
-    if(directory[i].in_use)
-    {
-      if(strcmp(directory[i].filename, filename) ==0)
-      {
-        file_found = 1;
-        file_inode = directory[i].inode;
-        break;
-      }
-    }
-  }
-  if (!file_found)
-  {
-    printf("ERROR: File not found\n");
-    return;
-  }
-
-  directory[i].in_use = 1;
-  directory[i].inode = file_inode;
-  free_inodes[file_inode] = 1;
-
-  int j;
-  for(j = 0; j < BLOCKS_PER_FILE; j++)
-  {
-    if(inodes[file_inode].blocks[j] != -1)
-    {
-      free_blocks[inodes[file_inode].blocks[j]] = 1;
-    }
-  }
-
-  inodes[file_inode].in_use = 1;
-  inodes[file_inode].attribute = 0;
-}
-
-
-
 void closefs()
 {
   if (image_open == 0)
@@ -743,46 +651,9 @@ int main()
         createfs(token[1]);
       }
     }
-   else if (strcmp(token[0], "df") == 0)
+    else if (strcmp(token[0], "df") == 0)
     {
-      if( !image_open)
-      {
-        printf("ERROR: Disk image is not opened.\n");
-        continue;
-      }
-
       df();
-    }
-    else if(strcmp(token[0], "delete") == 0)
-    {
-      if( !image_open)
-      {
-        printf("ERROR: Disk image is not opened.\n");
-        continue;
-      }
-
-      if(token[1] == NULL)
-      {
-        printf("ERROR: No filename specified.\n");
-      }
-
-      delete(token[1]);
-    }
-
-    else if(strcmp(token[0], "undelete") == 0)
-    {
-      if( !image_open)
-      {
-        printf("ERROR: Disk image is not opened.\n");
-        continue;
-      }
-
-      if(token[1] == NULL)
-      {
-        printf("ERROR: No filename specified.\n");
-      }
-
-      undelete(token[1]);
     }
 
     else if (strcmp(token[0], "open") == 0)
