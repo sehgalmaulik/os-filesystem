@@ -103,88 +103,101 @@ int find_free_block()
   }
   return -1;
 }
-void insert(char *filename)
+
+
+void insert(const char* filename)
 {
-  if (strlen(filename) > MAX_FILENAME_SIZE - 1)
+  if (!image_open)
   {
-    printf("ERROR: File name too long.\n");
+    printf("ERROR: Disk image is not opened\n");
     return;
   }
 
-  int32_t inode_id = -1;
+  if (filename == NULL)
+  {
+    printf("ERROR: No filename specified\n");
+    return;
+  }
+
+  if (strlen(filename) > MAX_FILENAME_SIZE)
+  {
+    printf("ERROR: Filename too long\n");
+    return;
+  }
+
+  int free_inode_idx = -1;
+  int free_directory_entry_idx = -1;
+
   for (int i = 0; i < NUM_FILES; i++)
   {
     if (!directory[i].in_use)
     {
-      inode_id = i;
+      free_directory_entry_idx = i;
+    }
+
+    if (!inodes[i].in_use)
+    {
+      free_inode_idx = i;
+    }
+
+    if (free_directory_entry_idx != -1 && free_inode_idx != -1)
+    {
       break;
     }
   }
 
-  if (inode_id == -1)
-  {
-    printf("ERROR: Directory is full.\n");
-    return;
-  }
-
-  int32_t file_block = -1;
-  file_block = find_free_block();
-
-  if (file_block == -1)
+  if (free_directory_entry_idx == -1 || free_inode_idx == -1)
   {
     printf("ERROR: Not enough disk space.\n");
     return;
   }
 
-  // Open file for reading
-  FILE* fp = fopen(filename, "r");
-  if (fp == NULL)
+  FILE* input_file = fopen(filename, "rb");
+  if (!input_file)
   {
-    printf("ERROR: Could not open file for reading.\n");
+    printf("ERROR: Unable to open file: %s\n", filename);
     return;
   }
 
-  // Read file contents and write to data blocks
-  struct inode* new_inode = &inodes[inode_id];
-  new_inode->in_use = 1;
-  new_inode->blocks[0] = file_block;
-  free_blocks[file_block] = 0;
+  fseek(input_file, 0, SEEK_END);
+  long file_size = ftell(input_file);
+  fseek(input_file, 0, SEEK_SET);
 
-  int byte_count = 0;
-  int block_index = file_block;
+  printf("File size: %ld\n", file_size);
 
-  while (byte_count < BLOCKS_PER_FILE * BLOCK_SIZE)
+  int required_blocks = (file_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
+  if (required_blocks > BLOCKS_PER_FILE)
   {
-    // Find next free block
-    int next_block = find_free_block();
-    if (next_block == -1)
+    printf("ERROR: Not enough disk space.\n");
+    fclose(input_file);
+    return;
+  }
+
+  directory[free_directory_entry_idx].in_use = 1;
+  strncpy(directory[free_directory_entry_idx].filename, filename, MAX_FILENAME_SIZE);
+  directory[free_directory_entry_idx].inode = free_inode_idx;
+
+  inodes[free_inode_idx].in_use = 1;
+  inodes[free_inode_idx].attribute = 0;
+
+  printf("Required blocks: %d\n", required_blocks);
+  for (int i = 0; i < required_blocks; i++)
+  {
+    int free_block_idx = find_free_block();
+    if (free_block_idx == -1)
     {
       printf("ERROR: Not enough disk space.\n");
+      fclose(input_file);
       return;
     }
 
-    // Write block to data
-    new_inode->blocks[block_index - file_block] = next_block;
-    free_blocks[next_block] = 0;
-
-    // Read file contents and write to block
-    int bytes_read = fread(&data[next_block][0], sizeof(uint8_t), BLOCK_SIZE, fp);
-    if (bytes_read == 0)
-    {
-      break;
-    }
-
-    byte_count += bytes_read;
-    block_index = next_block;
+    free_blocks[free_block_idx] = 0;
+    inodes[free_inode_idx].blocks[i] = free_block_idx;
+    fread(data[free_block_idx], sizeof(uint8_t), BLOCK_SIZE, input_file);
   }
 
-  fclose(fp);
-
-  // Update directory entry
-  struct directoryEntry* new_entry = &directory[inode_id];
-  strncpy(new_entry->filename, filename, strlen(filename));
-  new_entry->in_use = 1;
-  new_entry->inode = inode_id;
+  fclose(input_file);
+  printf("File '%s' inserted successfully.\n", filename);
 }
 
 void retrieve(char *filename)
