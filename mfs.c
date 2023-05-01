@@ -407,7 +407,6 @@ void createfs(char* filename)
   memset(data, 0, NUM_BLOCKS * BLOCK_SIZE);
   image_open = 1;
 
-  fclose(fp);
 }
 
 
@@ -485,6 +484,7 @@ void savefs()
   fflush(fp);
   memset(image_name, 0, 64);
   fclose(fp);
+  fp = NULL;
 }
 
 void openfs(char* filename)
@@ -501,7 +501,6 @@ void openfs(char* filename)
   fread(&data[0][0], BLOCK_SIZE, NUM_BLOCKS, fp);
   image_open = 1;
 
-  fclose(fp);
 }
 
 void readfile(char* filename, int starting_byte, int num_bytes)
@@ -565,6 +564,14 @@ void closefs()
     printf("ERROR: Disk image is not open.\n");
     return;
   }
+
+
+  if (fp == NULL)
+  {
+    printf("ERROR: File already closed by savefs.\n");
+    return;
+
+  }
   fclose(fp);
   image_open = 0;
   memset(image_name, 0, 64);
@@ -595,8 +602,6 @@ void delete(char* filename)
     return;
   }
 
-  // #define READ_ONLY 0x2
-  // check if it read only
   if (inodes[file_inode].attribute & READ_ONLY)
   {
     printf("ERROR: File is read only.\n");
@@ -729,7 +734,6 @@ void encrypt(char* filename, uint8_t cipher)
 
 void attrib(char* attrib_str, char* filename)
 {
-  printf("attrib: %s %s\n", attrib_str, filename);
   int i;
   int file_found = 0;
   int32_t file_inode = -1;
@@ -897,9 +901,6 @@ int main()
       int h = 0;
       int a = 0;
 
-      // list [-h] [-a]   Checking if -h is given. if -a is also given, then
-
-      // printing the attributes as well
       if (token[1] != NULL)
       {
         if (strcmp("-h", token[1]) == 0)
@@ -1050,9 +1051,6 @@ int main()
         printf("ERROR: No filename specified\n");
         continue;
       }
-
-      printf("token[1] : %s\n", token[1]);
-      printf("token[2] : %s\n", token[2]);
       attrib(token[1], token[2]);
     }
 
