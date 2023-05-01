@@ -49,25 +49,21 @@ struct inode
   uint8_t attribute;
   int size;
   char timestamp[32];
-
-
-
 };
 
-
-struct directoryEntry* directory;
-struct inode* inodes;
-FILE* fp;
+struct directoryEntry *directory;
+struct inode *inodes;
+FILE *fp;
 char image_name[64];
 uint8_t image_open;
-int    status;                   // Hold the status of all return values.
-struct stat buf;                 // stat struct to hold the returns from the stat call
+int status;      // Hold the status of all return values.
+struct stat buf; // stat struct to hold the returns from the stat call
 //add all the functions here
 
 void init()
 {
-  directory = (struct directoryEntry*)&data[0][0];
-  inodes = (struct inode*)&data[20][0];
+  directory = (struct directoryEntry *)&data[0][0];
+  inodes = (struct inode *)&data[20][0];
 
   free_blocks = (uint8_t *)&data[277][0];
   free_inodes = (uint8_t *)&data[19][0];
@@ -90,7 +86,7 @@ void init()
       inodes[i].in_use = 0;
       inodes[i].attribute = 0;
       inodes[i].size = 0;
-      memset(inodes[i].timestamp, 0, 32);      
+      memset(inodes[i].timestamp, 0, 32);
     }
   }
 
@@ -101,7 +97,8 @@ void init()
 
   for (i = 0; i < NUM_FILES; i++)
   {
-    if (directory[i].in_use) {
+    if (directory[i].in_use)
+    {
       int inode_idx = directory[i].inode;
       free_inodes[inode_idx] = 0;
       for (j = 0; j < BLOCKS_PER_FILE; j++)
@@ -114,7 +111,6 @@ void init()
       }
     }
   }
-
 }
 
 int find_free_block()
@@ -130,8 +126,7 @@ int find_free_block()
   return -1;
 }
 
-
-void insert(const char* filename)
+void insert(const char *filename)
 {
   if (!image_open)
   {
@@ -144,7 +139,6 @@ void insert(const char* filename)
     printf("ERROR: No filename specified\n");
     return;
   }
-
 
   int free_inode_idx = -1;
   int free_directory_entry_idx = -1;
@@ -166,10 +160,9 @@ void insert(const char* filename)
     {
       break;
     }
-    
   }
 
-  FILE* input_file = fopen(filename, "rb");
+  FILE *input_file = fopen(filename, "rb");
   if (!input_file)
   {
     printf("ERROR: Unable to open file: %s\n", filename);
@@ -217,84 +210,79 @@ void insert(const char* filename)
     fread(data[free_block_idx], sizeof(uint8_t), BLOCK_SIZE, input_file);
   }
 
-
-
   fclose(input_file);
   printf("File '%s' inserted successfully.\n", filename);
 }
 
-
-
-void retrieve(char* filename, char* newfilename)
+void retrieve(char *filename, char *newfilename)
 {
-    if (!image_open)
+  if (!image_open)
+  {
+    printf("ERROR: Disk image is not opened\n");
+    return;
+  }
+
+  if (filename == NULL)
+  {
+    printf("ERROR: No filename specified\n");
+    return;
+  }
+
+  int inode_idx = -1;
+  for (int i = 0; i < NUM_FILES; i++)
+  {
+    if (directory[i].in_use && strcmp(directory[i].filename, filename) == 0)
     {
-        printf("ERROR: Disk image is not opened\n");
-        return;
+      inode_idx = directory[i].inode;
+      break;
+    }
+  }
+
+  if (inode_idx == -1)
+  {
+    printf("ERROR: File not found\n");
+    return;
+  }
+
+  if (newfilename != NULL)
+  {
+    filename = newfilename;
+  }
+
+  struct inode *inode = &inodes[inode_idx];
+
+  int file_size = inode->size;
+
+  int remaining_bytes = file_size;
+  int offset = 0;
+
+  FILE *output_file = fopen(filename, "w");
+  if (!output_file)
+  {
+    printf("Error: File not found.\n");
+    return;
+  }
+
+  printf("Writing %d bytes to %s\n", file_size, filename);
+
+  for (int i = 0; i < BLOCKS_PER_FILE && remaining_bytes > 0; i++)
+  {
+    int block_idx = inode->blocks[i];
+    if (block_idx == -1)
+    {
+      continue;
     }
 
-    if (filename == NULL)
-    {
-        printf("ERROR: No filename specified\n");
-        return;
-    }
+    int num_bytes = remaining_bytes < BLOCK_SIZE ? remaining_bytes : BLOCK_SIZE;
 
-    int inode_idx = -1;
-    for (int i = 0; i < NUM_FILES; i++)
-    {
-        if (directory[i].in_use && strcmp(directory[i].filename, filename) == 0)
-        {
-            inode_idx = directory[i].inode;
-            break;
-        }
-    }
+    fwrite(data[block_idx], 1, num_bytes, output_file);
 
-    if (inode_idx == -1)
-    {
-        printf("ERROR: File not found\n");
-        return;
-    }
+    remaining_bytes -= num_bytes;
+    offset += num_bytes;
+  }
 
-     if (newfilename != NULL)
-    {
-      filename = newfilename;
-    }
-
-    struct inode *inode = &inodes[inode_idx];
-
-    int file_size = inode->size;
-    
-    int remaining_bytes = file_size;
-    int offset = 0;
-
-    FILE *output_file = fopen(filename, "w");
-    if (!output_file)
-    {
-        printf("Error: File not found.\n");
-        return;
-    }
-
-    printf("Writing %d bytes to %s\n", file_size, filename);
-
-    for (int i = 0; i < BLOCKS_PER_FILE && remaining_bytes > 0; i++)
-    {
-        int block_idx = inode->blocks[i];
-        if (block_idx == -1)
-        {
-            continue;
-        }
-        
-        int num_bytes = remaining_bytes < BLOCK_SIZE ? remaining_bytes : BLOCK_SIZE;
-        
-        fwrite(data[block_idx], 1, num_bytes, output_file);
-
-        remaining_bytes -= num_bytes;
-        offset += num_bytes;
-    }
-
-    fclose(output_file);
+  fclose(output_file);
 }
-
 
 //creating function df
 void df()
@@ -312,7 +300,7 @@ void df()
   printf("%d bytes free\n", count * BLOCK_SIZE);
 }
 
-void createfs(char* filename)
+void createfs(char *filename)
 {
   fp = fopen(filename, "w+");
 
@@ -320,9 +308,7 @@ void createfs(char* filename)
 
   memset(data, 0, NUM_BLOCKS * BLOCK_SIZE);
   image_open = 1;
-
 }
-
 
 void list(int h, int a)
 {
@@ -347,7 +333,6 @@ void list(int h, int a)
           {
             printf("%u", (inodes[directory[i].inode].attribute >> j) & 1);
             //include time stamp
-            
           }
         }
         printf("\t");
@@ -355,7 +340,6 @@ void list(int h, int a)
         printf("\t");
         printf("%s", inodes[directory[i].inode].timestamp);
         printf("\n");
-
       }
       else if (!h && !(inodes[directory[i].inode].attribute & 1))
       {
@@ -412,7 +396,7 @@ void savefs()
   fp = NULL;
 }
 
-void openfs(char* filename)
+void openfs(char *filename)
 {
   fp = fopen(filename, "r+");
   if (fp == NULL)
@@ -425,17 +409,16 @@ void openfs(char* filename)
 
   fread(&data[0][0], BLOCK_SIZE, NUM_BLOCKS, fp);
   image_open = 1;
-
 }
 
-void readfile(char* filename, int starting_byte, int num_bytes)
+void readfile(char *filename, int starting_byte, int num_bytes)
 {
   int i;
   for (i = 0; i < NUM_FILES; i++)
   {
     if (directory[i].in_use && strcmp(directory[i].filename, filename) == 0)
     {
-      struct inode* inode_ptr = &inodes[directory[i].inode];
+      struct inode *inode_ptr = &inodes[directory[i].inode];
 
       int byte_offset = starting_byte;
       int bytes_left = num_bytes;
@@ -463,7 +446,7 @@ void readfile(char* filename, int starting_byte, int num_bytes)
         if (bytes_to_read <= 0)
         {
           break;
-        } 
+        }
 
         for (int k = block_offset; k < block_offset + bytes_to_read; k++)
         {
@@ -490,12 +473,10 @@ void closefs()
     return;
   }
 
-
   if (fp == NULL)
   {
     printf("ERROR: File already closed by savefs.\n");
     return;
-
   }
   fclose(fp);
   image_open = 0;
@@ -503,17 +484,17 @@ void closefs()
 }
 
 //a function to delete a file from the file system
-void delete(char* filename)
+void delete (char *filename)
 {
   int i;
   int file_found = 0;
   int32_t file_inode = -1;
 
-  for(i =0; i < NUM_FILES; i++)
+  for (i = 0; i < NUM_FILES; i++)
   {
-    if(directory[i].in_use)
+    if (directory[i].in_use)
     {
-      if(strcmp(directory[i].filename, filename) ==0)
+      if (strcmp(directory[i].filename, filename) == 0)
       {
         file_found = 1;
         file_inode = directory[i].inode;
@@ -535,12 +516,12 @@ void delete(char* filename)
 
   directory[i].in_use = 0;
 
-  inodes[file_inode].in_use =0;
+  inodes[file_inode].in_use = 0;
 
   int j;
-  for(j = 0; j < BLOCKS_PER_FILE; j++)
+  for (j = 0; j < BLOCKS_PER_FILE; j++)
   {
-    if(inodes[file_inode].blocks[j] != -1)
+    if (inodes[file_inode].blocks[j] != -1)
     {
       free_blocks[inodes[file_inode].blocks[j]] = 1;
       // inodes[file_inode].blocks[j] = -1;
@@ -549,16 +530,16 @@ void delete(char* filename)
 }
 
 //a function to undelete a file from the file system
-void undelete(char* filename)
+void undelete(char *filename)
 {
   int i;
   int file_found = 0;
   int32_t file_inode = -1;
 
   // Find the deleted file in the directory
-  for(i =0; i < NUM_FILES; i++)
+  for (i = 0; i < NUM_FILES; i++)
   {
-    if(strcmp(directory[i].filename, filename) == 0)
+    if (strcmp(directory[i].filename, filename) == 0)
     {
       printf("%d \n", directory[i].inode);
       file_found = 1;
@@ -589,71 +570,68 @@ void undelete(char* filename)
       free_blocks[inodes[file_inode].blocks[j]] = 0;
     }
   }
-
 }
 
 void encrypt_(char *filename, uint8_t cipher)
 {
-    if (!image_open)
+  if (!image_open)
+  {
+    printf("ERROR: Disk image is not opened\n");
+    return;
+  }
+
+  if (filename == NULL)
+  {
+    printf("ERROR: No filename specified\n");
+    return;
+  }
+
+  int inode_idx = -1;
+  for (int i = 0; i < NUM_FILES; i++)
+  {
+    if (directory[i].in_use && strcmp(directory[i].filename, filename) == 0)
     {
-        printf("ERROR: Disk image is not opened\n");
-        return;
+      inode_idx = directory[i].inode;
+      break;
+    }
+  }
+
+  if (inode_idx == -1)
+  {
+    printf("ERROR: File not found\n");
+    return;
+  }
+
+  struct inode *inode = &inodes[inode_idx];
+  int file_size = inode->size;
+  int remaining_bytes = file_size;
+
+  for (int i = 0; i < BLOCKS_PER_FILE && remaining_bytes > 0; i++)
+  {
+    int block_idx = inode->blocks[i];
+    if (block_idx == -1)
+    {
+      continue;
     }
 
-    if (filename == NULL)
+    int num_bytes = remaining_bytes < BLOCK_SIZE ? remaining_bytes : BLOCK_SIZE;
+
+    for (int j = 0; j < num_bytes; j++)
     {
-        printf("ERROR: No filename specified\n");
-        return;
+      data[block_idx][j] ^= cipher;
     }
 
-    int inode_idx = -1;
-    for (int i = 0; i < NUM_FILES; i++)
-    {
-        if (directory[i].in_use && strcmp(directory[i].filename, filename) == 0)
-        {
-            inode_idx = directory[i].inode;
-            break;
-        }
-    }
-
-    if (inode_idx == -1)
-    {
-        printf("ERROR: File not found\n");
-        return;
-    }
-
-    struct inode *inode = &inodes[inode_idx];
-    int file_size = inode->size;
-    int remaining_bytes = file_size;
-
-    for (int i = 0; i < BLOCKS_PER_FILE && remaining_bytes > 0; i++)
-    {
-        int block_idx = inode->blocks[i];
-        if (block_idx == -1)
-        {
-            continue;
-        }
-
-        int num_bytes = remaining_bytes < BLOCK_SIZE ? remaining_bytes : BLOCK_SIZE;
-
-        for (int j = 0; j < num_bytes; j++)
-        {
-            data[block_idx][j] ^= cipher;
-        }
-
-        remaining_bytes -= num_bytes;
-    }
+    remaining_bytes -= num_bytes;
+  }
 }
 
-void attrib(char* attrib_str, char* filename)
+void attrib(char *attrib_str, char *filename)
 {
   int i;
   int file_found = 0;
   int32_t file_inode = -1;
 
-
   file_inode = -1;
-
 
   for (i = 0; i < NUM_FILES; i++)
   {
@@ -713,15 +691,14 @@ void attrib(char* attrib_str, char* filename)
       return;
     }
   }
-  
+
   inodes[file_inode].attribute = attrib_value;
 }
-
 
 int main()
 {
 
-  char* command_string = (char*)malloc(MAX_COMMAND_SIZE);
+  char *command_string = (char *)malloc(MAX_COMMAND_SIZE);
   //FILE* fp = NULL;
   init();
   while (1)
@@ -738,7 +715,7 @@ int main()
       ;
 
     /* Parse input */
-    char* token[MAX_NUM_ARGUMENTS];
+    char *token[MAX_NUM_ARGUMENTS];
 
     for (int i = 0; i < MAX_NUM_ARGUMENTS; i++)
     {
@@ -749,18 +726,18 @@ int main()
 
     // Pointer to point to the token
     // parsed by strsep
-    char* argument_ptr = NULL;
+    char *argument_ptr = NULL;
 
-    char* working_string = strdup(command_string);
+    char *working_string = strdup(command_string);
 
     // we are going to move the working_string pointer so
     // keep track of its original value so we can deallocate
     // the correct amount at the end
-    char* head_ptr = working_string;
+    char *head_ptr = working_string;
 
     // Tokenize the input strings with whitespace used as the delimiter
     while (((argument_ptr = strsep(&working_string, WHITESPACE)) != NULL) &&
-      (token_count < MAX_NUM_ARGUMENTS))
+           (token_count < MAX_NUM_ARGUMENTS))
     {
       token[token_count] = strndup(argument_ptr, MAX_COMMAND_SIZE);
       if (strlen(token[token_count]) == 0)
@@ -843,7 +820,7 @@ int main()
 
     else if (strcmp(token[0], "df") == 0)
     {
-      if( !image_open)
+      if (!image_open)
       {
         printf("ERROR: Disk image is not opened.\n");
         continue;
@@ -851,32 +828,32 @@ int main()
 
       df();
     }
-    
-    else if(strcmp(token[0], "delete") == 0)
+
+    else if (strcmp(token[0], "delete") == 0)
     {
-      if( !image_open)
+      if (!image_open)
       {
         printf("ERROR: Disk image is not opened.\n");
         continue;
       }
 
-      if(token[1] == NULL)
+      if (token[1] == NULL)
       {
         printf("ERROR: No filename specified.\n");
       }
 
-      delete(token[1]);
+      delete (token[1]);
     }
 
-    else if(strcmp(token[0], "undelete") == 0)
+    else if (strcmp(token[0], "undelete") == 0)
     {
-      if( !image_open)
+      if (!image_open)
       {
         printf("ERROR: Disk image is not opened.\n");
         continue;
       }
 
-      if(token[1] == NULL)
+      if (token[1] == NULL)
       {
         printf("ERROR: No filename specified.\n");
       }
@@ -904,7 +881,7 @@ int main()
         continue;
       }
 
-      char* filename = token[1];
+      char *filename = token[1];
       int starting_byte = atoi(token[2]);
       int num_bytes = atoi(token[3]);
 
@@ -951,32 +928,30 @@ int main()
       attrib(token[1], token[2]);
     }
 
-
     else if (strcmp(token[0], "insert") == 0)
     {
       insert(token[1]);
     }
 
-     else if (strcmp(token[0], "retrieve") == 0)
+    else if (strcmp(token[0], "retrieve") == 0)
     {
-      if(token[1]==NULL)
+      if (token[1] == NULL)
       {
         printf("ERROR: No filename specified\n");
         continue;
       }
 
-      char* fn = token[1];
-      char* fn2 = NULL;
+      char *fn = token[1];
+      char *fn2 = NULL;
 
-      if(token[2] != NULL)
+      if (token[2] != NULL)
       {
         fn2 = token[2];
       }
 
       retrieve(fn, fn2);
-
     }
-    
+
     else
     {
       printf("ERROR: Command not found\n");
