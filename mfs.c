@@ -29,8 +29,8 @@ uint8_t data[NUM_BLOCKS][BLOCK_SIZE];
 
 uint8_t free_blocks[65536];
 
-// directory
-
+// directory entry
+// this is struct to store file meta 
 struct directoryEntry
 {
   char filename[64];
@@ -39,7 +39,9 @@ struct directoryEntry
 };
 
 // inode
-
+// this struct is for finding which file is in which block
+// the blocks array is for storing the block number of the file
+// Eg: if a file is stored in block nums 1, 4, 7 then the blocks array will be {1, 4, 7, -1, -1, -1, -1, -1}
 struct inode
 {
   short in_use;
@@ -57,8 +59,13 @@ uint8_t image_open;
 
 void init()
 {
+  //this is a ptr to the first directory entry
   directory = (struct directoryEntry*)&data[0][0];
+
+  //this is a ptr to the first inode
   inodes = (struct inode*)&data[20][0];
+
+
 
   memset(image_name, 0, 64);
   image_open = 0;
@@ -85,8 +92,8 @@ void init()
     free_blocks[j] = 1;
   }
 
-  directory[0].in_use = 1;
-  strncpy(directory[0].filename, "file.txt", strlen("file.txt"));
+  // directory[0].in_use = 1;
+  // strncpy(directory[0].filename, "file.txt", strlen("file.txt"));
 }
 
 
@@ -191,7 +198,7 @@ void list(int h, int a)
   {
     if (directory[i].in_use)
     {
-
+      //print files when h is 1 and filename is hidden
       if (h && (directory[i].filename[0] == '.' && directory[i].filename[1] != '\0'))
       {
 
@@ -210,6 +217,7 @@ void list(int h, int a)
 
         printf("\n");
       }
+      //print files when h is 0 and filename is not hidden
       else if (!h && (directory[i].filename[0] != '.' || directory[i].filename[1] == '\0'))
       {
         not_found = 0;
