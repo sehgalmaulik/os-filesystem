@@ -10,7 +10,7 @@
 #include <string.h>
 #include <signal.h>
 #include <stdint.h>
-
+#include <sys/stat.h>
 #define BLOCK_SIZE 1024
 #define NUM_BLOCKS 65536
 #define BLOCKS_PER_FILE 1024
@@ -54,7 +54,8 @@ struct inode* inodes;
 FILE* fp;
 char image_name[64];
 uint8_t image_open;
-
+int    status;                   // Hold the status of all return values.
+struct stat buf;                 // stat struct to hold the returns from the stat call
 //add all the functions here
 
 void init()
@@ -157,6 +158,163 @@ void insert(char *filename)
   for (int i = 1; i < BLOCKS_PER_FILE; i++)
   {
     new_inode->blocks[i] = -1;
+  }
+}
+
+void retrieve(char *filename)
+{
+  fp = fopen(filename, "r");  
+  if( fp == NULL )
+  {
+    printf("Could not open output file: %s\n", filename );
+    perror("Opening output file returned");    
+  }
+  status =  stat( filename, &buf ); 
+  if(status != -1)
+  {
+    // Initialize our offsets and pointers just we did above when reading from the file.
+    int block_index = 0;
+    int copy_size   = buf . st_size;
+    int offset      = 0;
+    for (int i = 0; i < NUM_FILES; i++)
+    {
+      if(directory[i].in_use==1){        
+        if(strcmp(directory[i].filename,filename)==0){
+          int tmp_idx = directory[i].inode;
+          if(inodes[tmp_idx].in_use==1)
+          {
+            block_index = tmp_idx;
+          }                    
+        }
+      }      
+    }    
+    // struct inode* get_inode = &inodes[block_index];
+    // get_inode->in_use = 1;
+    filename = basename(filename);
+    printf("Writing %d bytes to %s\n", (int) buf . st_size, filename );
+
+    // Using copy_size as a count to determine when we've copied enough bytes to the output file.
+    // Each time through the loop, except the last time, we will copy BLOCK_SIZE number of bytes from
+    // our stored data to the file fp, then we will increment the offset into the file we are writing to.
+    // On the last iteration of the loop, instead of copying BLOCK_SIZE number of bytes we just copy
+    // how ever much is remaining ( copy_size % BLOCK_SIZE ).  If we just copied BLOCK_SIZE on the
+    // last iteration we'd end up with gibberish at the end of our file. 
+    while( copy_size > 0 )
+    { 
+
+      int num_bytes;
+
+      // If the remaining number of bytes we need to copy is less than BLOCK_SIZE then
+      // only copy the amount that remains. If we copied BLOCK_SIZE number of bytes we'd
+      // end up with garbage at the end of the file.
+      if( copy_size < BLOCK_SIZE )
+      {
+        num_bytes = copy_size;
+      }
+      else 
+      {
+        num_bytes = BLOCK_SIZE;
+      }
+      fp = fopen(filename,"w");
+      // Write num_bytes number of bytes from our data array into our output file.
+      fwrite( data[block_index], 1, num_bytes, fp);
+
+      // Reduce the amount of bytes remaining to copy, increase the offset into the file
+      // and increment the block_index to move us to the next data block.
+      copy_size -= BLOCK_SIZE;
+      offset    += BLOCK_SIZE;
+      
+
+      // Since we've copied from the point pointed to by our current file pointer, increment
+      // offset number of bytes so we will be ready to copy to the next area of our output file.
+      fseek( fp, offset, SEEK_SET );      
+    }
+
+    // Close the output file, we're done. 
+    fclose( fp );
+  }
+  else
+  {
+    printf("Unable to open file: %s\n", filename );
+    perror("Opening the input file returned: ");    
+  }
+}
+
+void retrieve1(char *filename,char *newfilename)
+{
+  fp = fopen(filename, "r");  
+  if( fp == NULL )
+  {
+    printf("Could not open output file: %s\n", filename );
+    perror("Opening output file returned");    
+  }
+  status =  stat( filename, &buf ); 
+  if(status != -1)
+  {
+    // Initialize our offsets and pointers just we did above when reading from the file.
+    int block_index = 0;
+    int copy_size   = buf . st_size;
+    int offset      = 0;
+    for (int i = 0; i < NUM_FILES; i++)
+    {
+      if(directory[i].in_use==1){        
+        if(strcmp(directory[i].filename,filename)==0){
+          int tmp_idx = directory[i].inode;
+          if(inodes[tmp_idx].in_use==1)
+          {
+            block_index = tmp_idx;
+          }                    
+        }
+      }      
+    }    
+    // struct inode* get_inode = &inodes[block_index];
+    // get_inode->in_use = 1;    
+    printf("Writing %d bytes to %s\n", (int) buf . st_size, newfilename );
+
+    // Using copy_size as a count to determine when we've copied enough bytes to the output file.
+    // Each time through the loop, except the last time, we will copy BLOCK_SIZE number of bytes from
+    // our stored data to the file fp, then we will increment the offset into the file we are writing to.
+    // On the last iteration of the loop, instead of copying BLOCK_SIZE number of bytes we just copy
+    // how ever much is remaining ( copy_size % BLOCK_SIZE ).  If we just copied BLOCK_SIZE on the
+    // last iteration we'd end up with gibberish at the end of our file. 
+    while( copy_size > 0 )
+    { 
+
+      int num_bytes;
+
+      // If the remaining number of bytes we need to copy is less than BLOCK_SIZE then
+      // only copy the amount that remains. If we copied BLOCK_SIZE number of bytes we'd
+      // end up with garbage at the end of the file.
+      if( copy_size < BLOCK_SIZE )
+      {
+        num_bytes = copy_size;
+      }
+      else 
+      {
+        num_bytes = BLOCK_SIZE;
+      }
+      fp = fopen(newfilename,"w");
+      // Write num_bytes number of bytes from our data array into our output file.
+      fwrite( data[block_index], 1, num_bytes, fp);
+
+      // Reduce the amount of bytes remaining to copy, increase the offset into the file
+      // and increment the block_index to move us to the next data block.
+      copy_size -= BLOCK_SIZE;
+      offset    += BLOCK_SIZE;
+      
+
+      // Since we've copied from the point pointed to by our current file pointer, increment
+      // offset number of bytes so we will be ready to copy to the next area of our output file.
+      fseek( fp, offset, SEEK_SET );      
+    }
+
+    // Close the output file, we're done. 
+    fclose( fp );
+  }
+  else
+  {
+    printf("Unable to open file: %s\n", filename );
+    perror("Opening the input file returned: ");    
   }
 }
 
@@ -514,7 +672,7 @@ int main()
 {
 
   char* command_string = (char*)malloc(MAX_COMMAND_SIZE);
-  FILE* fp = NULL;
+  //FILE* fp = NULL;
   init();
   while (1)
   {
@@ -730,6 +888,24 @@ int main()
     else if (strcmp(token[0], "insert") == 0)
     {
       insert(token[1]);
+    }
+
+    else if (strcmp(token[0], "retrieve") == 0)
+    {
+      if(token[1]==NULL)
+      {
+        printf("ERROR: No filename specified\n");
+        continue;
+      }
+      if(token[1]!=NULL && token[2]==NULL)
+      {
+        retrieve(token[1]);        
+      }
+      else if(token[1]!=NULL && token[2]!=NULL)
+      {
+        retrieve1(token[1],token[2]);
+      }
+
     }
     
     else
