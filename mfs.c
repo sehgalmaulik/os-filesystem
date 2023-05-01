@@ -58,7 +58,16 @@ char image_name[64];
 uint8_t image_open;
 int status;      // Hold the status of all return values.
 struct stat buf; // stat struct to hold the returns from the stat call
-//add all the functions here
+
+
+/*
+Name: init
+Params: none
+Returns: none
+Description: Initializer function to set all the data structures to null, zero, or -1.
+              Also assigns the pointers to the appropriate locations in the data array.
+
+*/
 
 void init()
 {
@@ -113,6 +122,15 @@ void init()
   }
 }
 
+
+/*
+Name: find_free_block
+Params: none
+Returns: int - index of the first free block
+Description: Finds the first free block in the data array starting from the first data block
+              and returns its index. If no free block is found, returns -1.
+*/
+
 int find_free_block()
 {
   for (int i = FIRST_DATA_BLOCK; i < NUM_BLOCKS; i++)
@@ -125,6 +143,15 @@ int find_free_block()
   }
   return -1;
 }
+
+/*
+Name : insert
+Params: const char *filename - name of the file to be inserted
+Returns: none
+Description: Inserts the file with filename into the file system image. checks if there is 
+              enough space and free directory and inode entry to store the file. If there is then
+              it copies the file into the data array and updates the directory and inode entries.
+*/
 
 void insert(const char *filename)
 {
@@ -214,6 +241,16 @@ void insert(const char *filename)
   printf("File '%s' inserted successfully.\n", filename);
 }
 
+
+/*
+Name : retrieve
+Params: char *filename - name of the file to be retrieved
+        char *newfilename - name of the file to be saved as
+Returns: none
+Description: Retrieves the file with filename from the file system image. checks if the file exists
+              and if it does then it copies the file from the data array and saves it as newfilename.
+*/
+
 void retrieve(char *filename, char *newfilename)
 {
   if (!image_open)
@@ -284,7 +321,13 @@ void retrieve(char *filename, char *newfilename)
   fclose(output_file);
 }
 
-//creating function df
+/*
+Name : df
+Params: none
+Returns: none
+Description: Prints the number of free bytes in the file system image in bytes.
+*/
+
 void df()
 {
   int j;
@@ -300,6 +343,14 @@ void df()
   printf("%d bytes free\n", count * BLOCK_SIZE);
 }
 
+/*
+Name : createfs
+Params: char *filename - name of the file system image to be created in memory
+Returns: none
+Description: Creates a file system image in memory with the name filename.
+              Also initializes the data array to all 0s and sets the image_open flag to 1.
+*/
+
 void createfs(char *filename)
 {
   fp = fopen(filename, "w+");
@@ -310,6 +361,15 @@ void createfs(char *filename)
   image_open = 1;
 }
 
+
+/*
+Name : list
+Params: int h - flag to indicate if hidden files should be listed
+        int a - flag to indicate if attributes should be listed
+Returns: none
+Description: Lists all the files in the file system image with their sizes and timestamp of creation.
+              If h is set then hidden files are also listed. If a is set then attributes are also listed.
+*/
 void list(int h, int a)
 {
   int i;
@@ -332,7 +392,6 @@ void list(int h, int a)
           for (j = 7; j >= 0; j--)
           {
             printf("%u", (inodes[directory[i].inode].attribute >> j) & 1);
-            //include time stamp
           }
         }
         printf("\t");
@@ -358,7 +417,6 @@ void list(int h, int a)
         }
 
         printf("\t");
-        //print size
         printf("%d", inodes[directory[i].inode].size);
         printf("\t");
         printf("%s", inodes[directory[i].inode].timestamp);
@@ -373,7 +431,12 @@ void list(int h, int a)
   }
 }
 
-// SAVE
+/*
+Name : savefs
+Params: none
+Returns: none
+Description: Saves the current state of the file system image to the disk image from memory.
+*/
 void savefs()
 {
   if (image_open == 0)
@@ -396,6 +459,12 @@ void savefs()
   fp = NULL;
 }
 
+/*
+Name : openfs
+Params: filename - name of the file system image to open
+Returns: none
+Description: Opens the file system image specified by filename and loads it into memory.
+*/
 void openfs(char *filename)
 {
   fp = fopen(filename, "r+");
@@ -411,6 +480,15 @@ void openfs(char *filename)
   image_open = 1;
 }
 
+/*
+Name : readfile
+Params: filename - name of the file to read
+        starting_byte - the byte offset to start reading from
+        num_bytes - the number of bytes to read
+Returns: none
+Description: Displays the specfied file starting at starting_byte and reading num_bytes to the screen.
+              similar to "cat" but here the num of bytes to read is needed
+*/
 void readfile(char *filename, int starting_byte, int num_bytes)
 {
   int i;
@@ -465,6 +543,14 @@ void readfile(char *filename, int starting_byte, int num_bytes)
 
   printf("ERROR: File not found.\n");
 }
+
+/*
+Name : closefs
+Params: none
+Returns: none
+Description: Closes the file system image from memory and writes it to computer's disk.
+*/
+
 void closefs()
 {
   if (image_open == 0)
@@ -483,7 +569,12 @@ void closefs()
   memset(image_name, 0, 64);
 }
 
-//a function to delete a file from the file system
+/*
+Name : delete
+Params: filename - name of the file to delete
+Returns: none
+Description: Deletes the specified file from the file system image from memory.
+*/
 void delete (char *filename)
 {
   int i;
@@ -529,7 +620,13 @@ void delete (char *filename)
   }
 }
 
-//a function to undelete a file from the file system
+/*
+Name : undelete
+Params: filename - name of the file to undelete
+Returns: none
+Description: Undoes the effect of delete by restoring the specified file to the file system image from memory.
+              Does not work if data block has been overwritten.
+*/
 void undelete(char *filename)
 {
   int i;
@@ -571,6 +668,16 @@ void undelete(char *filename)
     }
   }
 }
+
+/*
+Name : encrypt_
+Params: filename - name of the file to encrypt or decrypt on the file system image in memory
+        cipher - cipher to use for encryption, idealy should be uint8_t but if larger, it wraps around
+Returns: none
+Description: Encrypts the specified file in the file system image in memory using the specified cipher using 
+              the byte to byte XOR cipher.
+              Same function is called to decrypt the file
+*/
 
 void encrypt_(char *filename, uint8_t cipher)
 {
@@ -624,6 +731,19 @@ void encrypt_(char *filename, uint8_t cipher)
     remaining_bytes -= num_bytes;
   }
 }
+
+
+/*
+Name : attrib
+Params: attrib_str - string containing the attributes to set
+        filename - name of the file to set the attributes for
+Returns: none
+Description: Sets the attributes of the specified file in the file system image in memory. the attributes are set as 
+              +h - hidden
+              -h - not hidden
+              +r - read only
+              -r - undo read only
+*/
 
 void attrib(char *attrib_str, char *filename)
 {
@@ -695,6 +815,15 @@ void attrib(char *attrib_str, char *filename)
   inodes[file_inode].attribute = attrib_value;
 }
 
+
+/*
+Name : main 
+Params: none
+Returns: int - status code
+Description: Main function of the program. Runs a continuous loop for the prompt, tokenizes it and upon comparing
+              the tokens that what is required, calls the appropriate function using the strcmp function
+
+*/
 int main()
 {
 
