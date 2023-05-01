@@ -28,10 +28,10 @@
 
 uint8_t data[NUM_BLOCKS][BLOCK_SIZE];
 
-uint8_t* free_blocks;
-uint8_t* free_inodes;
+uint8_t *free_blocks;
+uint8_t *free_inodes;
 
-// directory entry 
+// directory entry
 struct directoryEntry
 {
   char filename[64];
@@ -49,9 +49,9 @@ struct inode
   char timestamp[32];
 };
 
-struct directoryEntry* directory;
-struct inode* inodes;
-FILE* fp;
+struct directoryEntry *directory;
+struct inode *inodes;
+FILE *fp;
 char image_name[64];
 uint8_t image_open;
 int status;      // Hold the status of all return values.
@@ -68,11 +68,11 @@ Description: Initializer function to set all the data structures to null, zero, 
 
 void init()
 {
-  directory = (struct directoryEntry*)&data[0][0];
-  inodes = (struct inode*)&data[20][0];
+  directory = (struct directoryEntry *)&data[0][0];
+  inodes = (struct inode *)&data[20][0];
 
-  free_blocks = (uint8_t*)&data[277][0];
-  free_inodes = (uint8_t*)&data[19][0];
+  free_blocks = (uint8_t *)&data[277][0];
+  free_inodes = (uint8_t *)&data[19][0];
 
   memset(image_name, 0, 64);
   image_open = 0;
@@ -149,7 +149,7 @@ Description: Inserts the file with filename into the file system image. checks i
               it copies the file into the data array and updates the directory and inode entries.
 */
 
-void insert(const char* filename)
+void insert(const char *filename)
 {
   if (!image_open)
   {
@@ -163,7 +163,7 @@ void insert(const char* filename)
     return;
   }
 
-  // Checking if the filename is too long  
+  // Checking if the filename is too long
   if (strlen(filename) > MAX_FILENAME_SIZE)
   {
     printf("insert error: File name too long.\n");
@@ -192,7 +192,7 @@ void insert(const char* filename)
     }
   }
 
-  FILE* input_file = fopen(filename, "rb");
+  FILE *input_file = fopen(filename, "rb");
   if (!input_file)
   {
     printf("Error: Unable to open file: %s\n", filename);
@@ -220,9 +220,9 @@ void insert(const char* filename)
   inodes[free_inode_idx].in_use = 1;
   inodes[free_inode_idx].attribute = 0;
   inodes[free_inode_idx].size = file_size;
-  
+
   time_t raw_time = time(NULL);
-  struct tm* formatted_time = localtime(&raw_time);
+  struct tm *formatted_time = localtime(&raw_time);
   strftime(inodes[free_inode_idx].timestamp, 32, "%H:%M:%S", formatted_time);
 
   // printf("Required blocks: %d\n", required_blocks);
@@ -255,7 +255,7 @@ Description: Retrieves the file with filename from the file system image. checks
               and if it does then it copies the file from the data array and saves it as newfilename.
 */
 
-void retrieve(char* filename, char* newfilename)
+void retrieve(char *filename, char *newfilename)
 {
   if (!image_open)
   {
@@ -290,14 +290,14 @@ void retrieve(char* filename, char* newfilename)
     filename = newfilename;
   }
 
-  struct inode* inode = &inodes[inode_idx];
+  struct inode *inode = &inodes[inode_idx];
 
   int file_size = inode->size;
 
   int remaining_bytes = file_size;
   int offset = 0;
 
-  FILE* output_file = fopen(filename, "w");
+  FILE *output_file = fopen(filename, "w");
   if (!output_file)
   {
     printf("Error: File not found.\n");
@@ -355,7 +355,7 @@ Description: Creates a file system image in memory with the name filename.
               Also initializes the data array to all 0s and sets the image_open flag to 1.
 */
 
-void createfs(char* filename)
+void createfs(char *filename)
 {
   fp = fopen(filename, "w+");
 
@@ -468,7 +468,7 @@ Params: filename - name of the file system image to open
 Returns: none
 Description: Opens the file system image specified by filename and loads it into memory.
 */
-void openfs(char* filename)
+void openfs(char *filename)
 {
   fp = fopen(filename, "r+");
   if (fp == NULL)
@@ -492,14 +492,14 @@ Returns: none
 Description: Displays the specfied file starting at starting_byte and reading num_bytes to the screen.
               similar to "cat" but here the num of bytes to read is needed
 */
-void readfile(char* filename, int starting_byte, int num_bytes)
+void readfile(char *filename, int starting_byte, int num_bytes)
 {
   int i;
   for (i = 0; i < NUM_FILES; i++)
   {
     if (directory[i].in_use && strcmp(directory[i].filename, filename) == 0)
     {
-      struct inode* inode_ptr = &inodes[directory[i].inode];
+      struct inode *inode_ptr = &inodes[directory[i].inode];
 
       int byte_offset = starting_byte;
       int bytes_left = num_bytes;
@@ -578,7 +578,7 @@ Params: filename - name of the file to delete
 Returns: none
 Description: Deletes the specified file from the file system image from memory.
 */
-void delete (char* filename)
+void delete (char *filename)
 {
   int i;
   int file_found = 0;
@@ -631,7 +631,7 @@ Returns: none
 Description: Undoes the effect of delete by restoring the specified file to the file system image from memory.
               Does not work if data block has been overwritten.
 */
-void undelete(char* filename)
+void undelete(char *filename)
 {
   int i;
   int file_found = 0;
@@ -682,7 +682,7 @@ Description: Encrypts the specified file in the file system image in memory usin
               Same function is called to decrypt the file
 */
 
-void encrypt_(char* filename, uint8_t cipher)
+void encrypt_(char *filename, uint8_t cipher)
 {
   if (!image_open)
   {
@@ -712,7 +712,7 @@ void encrypt_(char* filename, uint8_t cipher)
     return;
   }
 
-  struct inode* inode = &inodes[inode_idx];
+  struct inode *inode = &inodes[inode_idx];
   int file_size = inode->size;
   int remaining_bytes = file_size;
 
@@ -747,7 +747,7 @@ Description: Sets the attributes of the specified file in the file system image 
               -r - undo read only
 */
 
-void attrib(char* attrib_str, char* filename)
+void attrib(char *attrib_str, char *filename)
 {
   int i;
   int file_found = 0;
@@ -828,7 +828,7 @@ Description: Main function of the program. Runs a continuous loop for the prompt
 int main()
 {
 
-  char* command_string = (char*)malloc(MAX_COMMAND_SIZE);
+  char *command_string = (char *)malloc(MAX_COMMAND_SIZE);
   //FILE* fp = NULL;
   init();
   while (1)
@@ -845,7 +845,7 @@ int main()
       ;
 
     /* Parse input */
-    char* token[MAX_NUM_ARGUMENTS];
+    char *token[MAX_NUM_ARGUMENTS];
 
     for (int i = 0; i < MAX_NUM_ARGUMENTS; i++)
     {
@@ -856,18 +856,18 @@ int main()
 
     // Pointer to point to the token
     // parsed by strsep
-    char* argument_ptr = NULL;
+    char *argument_ptr = NULL;
 
-    char* working_string = strdup(command_string);
+    char *working_string = strdup(command_string);
 
     // we are going to move the working_string pointer so
     // keep track of its original value so we can deallocate
     // the correct amount at the end
-    char* head_ptr = working_string;
+    char *head_ptr = working_string;
 
     // Tokenize the input strings with whitespace used as the delimiter
     while (((argument_ptr = strsep(&working_string, WHITESPACE)) != NULL) &&
-      (token_count < MAX_NUM_ARGUMENTS))
+           (token_count < MAX_NUM_ARGUMENTS))
     {
       token[token_count] = strndup(argument_ptr, MAX_COMMAND_SIZE);
       if (strlen(token[token_count]) == 0)
@@ -1011,7 +1011,7 @@ int main()
         continue;
       }
 
-      char* filename = token[1];
+      char *filename = token[1];
       int starting_byte = atoi(token[2]);
       int num_bytes = atoi(token[3]);
 
@@ -1071,8 +1071,8 @@ int main()
         continue;
       }
 
-      char* fn = token[1];
-      char* fn2 = NULL;
+      char *fn = token[1];
+      char *fn2 = NULL;
 
       if (token[2] != NULL)
       {
