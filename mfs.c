@@ -133,7 +133,7 @@ int find_free_block()
   {
     if (!free_blocks[i])
     {
-      printf("Found free block: %d\n", i);
+      // printf("Found free block: %d\n", i);
       return i;
     }
   }
@@ -203,7 +203,7 @@ void insert(const char* filename)
   long file_size = ftell(input_file);
   fseek(input_file, 0, SEEK_SET);
 
-  printf("File size: %ld\n", file_size);
+  // printf("File size: %ld\n", file_size);
 
   int required_blocks = (file_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
   if (required_blocks > BLOCKS_PER_FILE)
@@ -225,7 +225,7 @@ void insert(const char* filename)
   struct tm* formatted_time = localtime(&raw_time);
   strftime(inodes[free_inode_idx].timestamp, 32, "%H:%M:%S", formatted_time);
 
-  printf("Required blocks: %d\n", required_blocks);
+  // printf("Required blocks: %d\n", required_blocks);
   for (int i = 0; i < required_blocks; i++)
   {
     int free_block_idx = find_free_block();
@@ -243,7 +243,7 @@ void insert(const char* filename)
   }
 
   fclose(input_file);
-  printf("File '%s' inserted successfully.\n", filename);
+  // printf("File '%s' inserted successfully.\n", filename);
 }
 
 /*
