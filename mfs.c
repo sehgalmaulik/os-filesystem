@@ -30,8 +30,8 @@ uint8_t data[NUM_BLOCKS][BLOCK_SIZE];
 uint8_t *free_blocks;
 uint8_t *free_inodes;
 
-// directory entry
-// this is struct to store file meta 
+// directory
+
 struct directoryEntry
 {
   char filename[64];
@@ -40,9 +40,7 @@ struct directoryEntry
 };
 
 // inode
-// this struct is for finding which file is in which block
-// the blocks array is for storing the block number of the file
-// Eg: if a file is stored in block nums 1, 4, 7 then the blocks array will be {1, 4, 7, -1, -1, -1, -1, -1}
+
 struct inode
 {
   short in_use;
@@ -60,10 +58,7 @@ uint8_t image_open;
 
 void init()
 {
-  //this is a ptr to the first directory entry
   directory = (struct directoryEntry*)&data[0][0];
-
-  //this is a ptr to the first inode
   inodes = (struct inode*)&data[20][0];
 
   free_blocks = (uint8_t *)&data[277][0];
@@ -112,7 +107,6 @@ int find_free_block()
   }
   return -1;
 }
-
 void insert(char *filename)
 {
   if (strlen(filename) > MAX_FILENAME_SIZE - 1)
@@ -146,21 +140,55 @@ void insert(char *filename)
     return;
   }
 
+  // Open file for reading
+  FILE* fp = fopen(filename, "r");
+  if (fp == NULL)
+  {
+    printf("ERROR: Could not open file for reading.\n");
+    return;
+  }
+
+  // Read file contents and write to data blocks
+  struct inode* new_inode = &inodes[inode_id];
+  new_inode->in_use = 1;
+  new_inode->blocks[0] = file_block;
+  free_blocks[file_block] = 0;
+
+  int byte_count = 0;
+  int block_index = file_block;
+
+  while (byte_count < BLOCKS_PER_FILE * BLOCK_SIZE)
+  {
+    // Find next free block
+    int next_block = find_free_block();
+    if (next_block == -1)
+    {
+      printf("ERROR: Not enough disk space.\n");
+      return;
+    }
+
+    // Write block to data
+    new_inode->blocks[block_index - file_block] = next_block;
+    free_blocks[next_block] = 0;
+
+    // Read file contents and write to block
+    int bytes_read = fread(&data[next_block][0], sizeof(uint8_t), BLOCK_SIZE, fp);
+    if (bytes_read == 0)
+    {
+      break;
+    }
+
+    byte_count += bytes_read;
+    block_index = next_block;
+  }
+
+  fclose(fp);
+
+  // Update directory entry
   struct directoryEntry* new_entry = &directory[inode_id];
   strncpy(new_entry->filename, filename, strlen(filename));
   new_entry->in_use = 1;
   new_entry->inode = inode_id;
-
-  struct inode* new_inode = &inodes[inode_id];
-  new_inode->in_use = 1;
-  new_inode->blocks[0] = file_block;
-
-  free_blocks[file_block] = 0;
-
-  for (int i = 1; i < BLOCKS_PER_FILE; i++)
-  {
-    new_inode->blocks[i] = -1;
-  }
 }
 
 //creating function df
@@ -201,7 +229,7 @@ void list(int h, int a)
   {
     if (directory[i].in_use)
     {
-      //print files when h is 1 and filename is hidden
+
       if (h && (directory[i].filename[0] == '.' && directory[i].filename[1] != '\0'))
       {
 
@@ -220,7 +248,6 @@ void list(int h, int a)
 
         printf("\n");
       }
-      //print files when h is 0 and filename is not hidden
       else if (!h && (directory[i].filename[0] != '.' || directory[i].filename[1] == '\0'))
       {
         not_found = 0;
@@ -290,78 +317,53 @@ void openfs(char* filename)
 void readfile(char* filename, int starting_byte, int num_bytes)
 {
   int i;
-  int file_found = 0;
-
-  int32_t file_inode = -1;
-
   for (i = 0; i < NUM_FILES; i++)
   {
-    if (directory[i].in_use)
+    if (directory[i].in_use && strcmp(directory[i].filename, filename) == 0)
     {
-      if (strncmp(directory[i].filename, filename, strlen(filename)) == 0)
+      struct inode* inode_ptr = &inodes[directory[i].inode];
+
+      int byte_offset = starting_byte;
+      int bytes_left = num_bytes;
+
+      for (int j = 0; j < BLOCKS_PER_FILE; j++)
       {
-        file_found = 1;
-        file_inode = directory[i].inode;
-        break;
+        if (inode_ptr->blocks[j] == -1)
+        {
+          break;
+        }
+
+        int block_offset = 0;
+
+        if (byte_offset > 0)
+        {
+          block_offset = byte_offset % BLOCK_SIZE;
+        }
+
+        int bytes_to_read = BLOCK_SIZE - block_offset;
+        if (bytes_to_read > bytes_left)
+        {
+          bytes_to_read = bytes_left;
+        }
+
+        if (bytes_to_read <= 0)
+        {
+          break;
+        } 
+
+        for (int k = block_offset; k < block_offset + bytes_to_read; k++)
+        {
+          printf("%02X ", data[inode_ptr->blocks[j]][k]);
+        }
+
+        printf("\n");
+
+        byte_offset += bytes_to_read;
+        bytes_left -= bytes_to_read;
       }
-    }
-  }
 
-  if (!file_found)
-  {
-    printf("ERROR: File not found\n");
-    return;
-  }
-
-  if (starting_byte < 0 || starting_byte >= (BLOCKS_PER_FILE * BLOCK_SIZE))
-  {
-    printf("ERROR: Invalid starting byte.\n");
-    return;
-  }
-
-  struct inode* inode_ptr = &inodes[file_inode];
-  int file_size = inode_ptr->attribute;
-
-  printf ("File size: %d\n", file_size);
-
-
-  if (num_bytes <= 0 || starting_byte + num_bytes > file_size)
-  {
-    printf("ERROR: Invalid number of bytes.\n");
-    return;
-  }
-
-  int block_index = starting_byte / BLOCK_SIZE;
-  int block_offset = starting_byte % BLOCK_SIZE;
-  int remaining_bytes = num_bytes;
-
-
-
-  while (remaining_bytes > 0 && block_index < BLOCKS_PER_FILE)
-  {
-    int32_t block_num = inode_ptr->blocks[block_index];
-
-    if (block_num == -1)
-    {
-      printf("ERROR: Invalid block number.\n");
       return;
     }
-
-    int bytes_to_read = (remaining_bytes > (BLOCK_SIZE - block_offset)) ? BLOCK_SIZE - block_offset : remaining_bytes;
-
-    for (i = 0; i < bytes_to_read; i++)
-    {
-      printf("%02x ", data[block_num][block_offset + i]);
-    }
-
-    remaining_bytes -= bytes_to_read;
-    block_offset = 0;
-    block_index++;
-  }
-
-  if (remaining_bytes > 0)
-  {
-    printf("ERROR: Could not read the entire specified range.\n");
   }
 }
 
@@ -450,6 +452,8 @@ void undelete(char* filename)
   inodes[file_inode].in_use = 1;
   inodes[file_inode].attribute = 0;
 }
+
+
 
 void closefs()
 {
