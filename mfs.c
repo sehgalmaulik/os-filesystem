@@ -59,7 +59,6 @@ uint8_t image_open;
 int status;      // Hold the status of all return values.
 struct stat buf; // stat struct to hold the returns from the stat call
 
-
 /*
 Name: init
 Params: none
@@ -80,7 +79,7 @@ void init()
   memset(image_name, 0, 64);
   image_open = 0;
 
-  int i, j, k;
+  int i, j;
   for (i = 0; i < NUM_FILES; i++)
   {
     directory[i].in_use = 0;
@@ -121,7 +120,6 @@ void init()
     }
   }
 }
-
 
 /*
 Name: find_free_block
@@ -241,7 +239,6 @@ void insert(const char *filename)
   printf("File '%s' inserted successfully.\n", filename);
 }
 
-
 /*
 Name : retrieve
 Params: char *filename - name of the file to be retrieved
@@ -360,7 +357,6 @@ void createfs(char *filename)
   memset(data, 0, NUM_BLOCKS * BLOCK_SIZE);
   image_open = 1;
 }
-
 
 /*
 Name : list
@@ -732,7 +728,6 @@ void encrypt_(char *filename, uint8_t cipher)
   }
 }
 
-
 /*
 Name : attrib
 Params: attrib_str - string containing the attributes to set
@@ -814,7 +809,6 @@ void attrib(char *attrib_str, char *filename)
 
   inodes[file_inode].attribute = attrib_value;
 }
-
 
 /*
 Name : main 
