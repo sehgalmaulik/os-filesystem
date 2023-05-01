@@ -19,6 +19,10 @@
 #define MAX_COMMAND_SIZE 255 // The maximum command-line size
 #define MAX_NUM_ARGUMENTS 5
 #define FIRST_DATA_BLOCK 300
+
+#define HIDDEN 0x1
+#define READ_ONLY 0x2
+
 #define MAX_FILENAME_SIZE 64
 
 uint8_t data[NUM_BLOCKS][BLOCK_SIZE];
@@ -43,9 +47,9 @@ struct inode
   uint8_t attribute;
 };
 
-struct directoryEntry *directory;
-struct inode *inodes;
-FILE *fp;
+struct directoryEntry* directory;
+struct inode* inodes;
+FILE* fp;
 char image_name[64];
 uint8_t image_open;
 
@@ -53,8 +57,8 @@ uint8_t image_open;
 
 void init()
 {
-  directory = (struct directoryEntry *)&data[0][0];
-  inodes = (struct inode *)&data[20][0];
+  directory = (struct directoryEntry*)&data[0][0];
+  inodes = (struct inode*)&data[20][0];
 
   memset(image_name, 0, 64);
   image_open = 0;
@@ -84,6 +88,7 @@ void init()
   directory[0].in_use = 1;
   strncpy(directory[0].filename, "file.txt", strlen("file.txt"));
 }
+
 
 //find free block
 int find_free_block()
@@ -131,12 +136,12 @@ void insert(char *filename)
     return;
   }
 
-  struct directoryEntry *new_entry = &directory[inode_id];
+  struct directoryEntry* new_entry = &directory[inode_id];
   strncpy(new_entry->filename, filename, strlen(filename));
   new_entry->in_use = 1;
   new_entry->inode = inode_id;
 
-  struct inode *new_inode = &inodes[inode_id];
+  struct inode* new_inode = &inodes[inode_id];
   new_inode->in_use = 1;
   new_inode->blocks[0] = file_block;
 
@@ -164,7 +169,7 @@ void df()
   printf("%d bytes free\n", count * BLOCK_SIZE);
 }
 
-void createfs(char *filename)
+void createfs(char* filename)
 {
   fp = fopen(filename, "w+");
 
@@ -176,14 +181,11 @@ void createfs(char *filename)
   fclose(fp);
 }
 
-// LIST
+
 void list(int h, int a)
 {
   int i;
   int not_found = 1;
-
-  printf("%d  h:\n", h);
-  printf("%d  a:\n", a);
 
   for (i = 0; i < NUM_FILES; i++)
   {
@@ -257,7 +259,7 @@ void savefs()
   fclose(fp);
 }
 
-void openfs(char *filename)
+void openfs(char* filename)
 {
   fp = fopen(filename, "r+");
   if (fp == NULL)
@@ -274,7 +276,7 @@ void openfs(char *filename)
   fclose(fp);
 }
 
-void readfile(char *filename, int starting_byte, int num_bytes)
+void readfile(char* filename, int starting_byte, int num_bytes)
 {
   int i;
   int file_found = 0;
@@ -306,7 +308,7 @@ void readfile(char *filename, int starting_byte, int num_bytes)
     return;
   }
 
-  struct inode *inode_ptr = &inodes[file_inode];
+  struct inode* inode_ptr = &inodes[file_inode];
   int file_size = inode_ptr->attribute;
 
   printf ("File size: %d\n", file_size);
@@ -364,7 +366,7 @@ void closefs()
   memset(image_name, 0, 64);
 }
 
-void encrypt(char *filename, uint8_t cipher)
+void encrypt(char* filename, uint8_t cipher)
 {
   size_t i; //changing from int to size_t as also used as index
   int file_found = 0;
@@ -389,7 +391,7 @@ void encrypt(char *filename, uint8_t cipher)
     return;
   }
 
-  struct inode *inode_ptr = &inodes[file_inode];
+  struct inode* inode_ptr = &inodes[file_inode];
   int file_size = 0;
 
   for (i = 0; i < BLOCKS_PER_FILE; i++)
@@ -429,11 +431,82 @@ void encrypt(char *filename, uint8_t cipher)
   }
 }
 
+void attrib(char* attrib_str, char* filename)
+{
+  int i;
+  int file_found = 0;
+  int32_t file_inode = -1;
+
+  // Initialize file_inode to -1
+  file_inode = -1;
+
+  // Search the directory for the specified file
+  for (i = 0; i < NUM_FILES; i++)
+  {
+    if (directory[i].in_use && strncmp(directory[i].filename, filename, strlen(filename)) == 0)
+    {
+      file_found = 1;
+      file_inode = directory[i].inode;
+      break;
+    }
+  }
+
+  if (!file_found)
+  {
+    printf("attrib: File not found.\n");
+    return;
+  }
+
+  int attrib_value = inodes[file_inode].attribute;
+
+  int j;
+  for (j = 0; j < strlen(attrib_str); j++)
+  {
+    switch (attrib_str[j])
+    {
+    case '+':
+      j++;
+      switch (attrib_str[j])
+      {
+      case 'h':
+        attrib_value |= HIDDEN;
+        break;
+      case 'r':
+        attrib_value |= READ_ONLY;
+        break;
+      default:
+        printf("ERROR: Invalid attribute.\n");
+        return;
+      }
+      break;
+    case '-':
+      j++;
+      switch (attrib_str[j])
+      {
+      case 'h':
+        attrib_value &= ~HIDDEN;
+        break;
+      case 'r':
+        attrib_value &= ~READ_ONLY;
+        break;
+      default:
+        printf("ERROR: Invalid attribute.\n");
+        return;
+      }
+      break;
+    default:
+      printf("ERROR: Invalid attribute.\n");
+      return;
+    }
+  }
+  
+  inodes[file_inode].attribute = attrib_value;
+}
 int main()
 {
 
-  char *command_string = (char *)malloc(MAX_COMMAND_SIZE);
-  FILE *fp = NULL;
+  char* command_string = (char*)malloc(MAX_COMMAND_SIZE);
+  FILE* fp = NULL;
   init();
   while (1)
   {
@@ -449,7 +522,7 @@ int main()
       ;
 
     /* Parse input */
-    char *token[MAX_NUM_ARGUMENTS];
+    char* token[MAX_NUM_ARGUMENTS];
 
     for (int i = 0; i < MAX_NUM_ARGUMENTS; i++)
     {
@@ -460,18 +533,18 @@ int main()
 
     // Pointer to point to the token
     // parsed by strsep
-    char *argument_ptr = NULL;
+    char* argument_ptr = NULL;
 
-    char *working_string = strdup(command_string);
+    char* working_string = strdup(command_string);
 
     // we are going to move the working_string pointer so
     // keep track of its original value so we can deallocate
     // the correct amount at the end
-    char *head_ptr = working_string;
+    char* head_ptr = working_string;
 
     // Tokenize the input strings with whitespace used as the delimiter
     while (((argument_ptr = strsep(&working_string, WHITESPACE)) != NULL) &&
-           (token_count < MAX_NUM_ARGUMENTS))
+      (token_count < MAX_NUM_ARGUMENTS))
     {
       token[token_count] = strndup(argument_ptr, MAX_COMMAND_SIZE);
       if (strlen(token[token_count]) == 0)
@@ -597,7 +670,7 @@ int main()
         continue;
       }
 
-      char *filename = token[1];
+      char* filename = token[1];
       int starting_byte = atoi(token[2]);
       int num_bytes = atoi(token[3]);
 
@@ -627,10 +700,30 @@ int main()
         encrypt(token[1], cipher_converted);
       }
     }
+
+    else if (strcmp("attrib", token[0]) == 0)
+    {
+      if (token[1] == NULL)
+      {
+        printf("ERROR: No attribute specified\n");
+        continue;
+      }
+
+      if (token[2] == NULL)
+      {
+        printf("ERROR: No filename specified\n");
+        continue;
+      }
+
+      attrib(token[2], token[1]);
+    }
+
+
     else if (strcmp(token[0], "insert") == 0)
     {
       insert(token[1]);
     }
+    
     else
     {
       printf("ERROR: Command not found\n");
