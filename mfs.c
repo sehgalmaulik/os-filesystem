@@ -219,7 +219,7 @@ void insert(const char* filename)
       return;
     }
 
-    free_blocks[free_block_idx] = 0;
+    free_blocks[free_block_idx] = 1;
     inodes[free_inode_idx].blocks[i] = free_block_idx;
     fread(data[free_block_idx], sizeof(uint8_t), BLOCK_SIZE, input_file);
   }
@@ -586,69 +586,57 @@ void undelete(char* filename)
 
 }
 
-void encrypt(char* filename, uint8_t cipher)
+void encrypt_(char *filename, uint8_t cipher)
 {
-  size_t i; //changing from int to size_t as also used as index
-  int file_found = 0;
-  int32_t file_inode = -1;
-
-  for (i = 0; i < NUM_FILES; i++)
-  {
-    if (directory[i].in_use)
+    if (!image_open)
     {
-      if (strncmp(directory[i].filename, filename, strlen(filename)) == 0)
-      {
-        file_found = 1;
-        file_inode = directory[i].inode;
-        break;
-      }
+        printf("ERROR: Disk image is not opened\n");
+        return;
     }
-  }
 
-  if (!file_found)
-  {
-    printf("ERROR: File not found\n");
-    return;
-  }
-
-  struct inode* inode_ptr = &inodes[file_inode];
-  int file_size = 0;
-
-  for (i = 0; i < BLOCKS_PER_FILE; i++)
-  {
-    if (inode_ptr->blocks[i] != -1)
+    if (filename == NULL)
     {
-      file_size += BLOCK_SIZE;
+        printf("ERROR: No filename specified\n");
+        return;
     }
-    else
+
+    int inode_idx = -1;
+    for (int i = 0; i < NUM_FILES; i++)
     {
-      break;
+        if (directory[i].in_use && strcmp(directory[i].filename, filename) == 0)
+        {
+            inode_idx = directory[i].inode;
+            break;
+        }
     }
-  }
 
-  uint8_t buffer[file_size];
-  int buffer_index = 0;
+    if (inode_idx == -1)
+    {
+        printf("ERROR: File not found\n");
+        return;
+    }
 
-  for (i = 0; i < BLOCKS_PER_FILE && inode_ptr->blocks[i] != -1; i++)
-  {
-    int32_t block_num = inode_ptr->blocks[i];
-    memcpy(buffer + buffer_index, data[block_num], BLOCK_SIZE);
-    buffer_index += BLOCK_SIZE;
-  }
+    struct inode *inode = &inodes[inode_idx];
+    int file_size = inode->size;
+    int remaining_bytes = file_size;
 
-  for (i = 0; i < file_size; i++)
-  {
-    buffer[i] ^= cipher;
-  }
+    for (int i = 0; i < BLOCKS_PER_FILE && remaining_bytes > 0; i++)
+    {
+        int block_idx = inode->blocks[i];
+        if (block_idx == -1)
+        {
+            continue;
+        }
 
-  buffer_index = 0;
+        int num_bytes = remaining_bytes < BLOCK_SIZE ? remaining_bytes : BLOCK_SIZE;
 
-  for (i = 0; i < BLOCKS_PER_FILE && inode_ptr->blocks[i] != -1; i++)
-  {
-    int32_t block_num = inode_ptr->blocks[i];
-    memcpy(data[block_num], buffer + buffer_index, BLOCK_SIZE);
-    buffer_index += BLOCK_SIZE;
-  }
+        for (int j = 0; j < num_bytes; j++)
+        {
+            data[block_idx][j] ^= cipher;
+        }
+
+        remaining_bytes -= num_bytes;
+    }
 }
 
 void attrib(char* attrib_str, char* filename)
@@ -952,8 +940,8 @@ int main()
       }
       else
       {
-        uint8_t cipher_converted = (uint8_t)strtol(token[2], NULL, 16);
-        encrypt(token[1], cipher_converted);
+        uint8_t cipher_converted = (uint8_t)atoi(token[2]);
+        encrypt_(token[1], cipher_converted);
       }
     }
 
