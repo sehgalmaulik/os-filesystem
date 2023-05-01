@@ -11,6 +11,7 @@
 #include <signal.h>
 #include <stdint.h>
 #include <sys/stat.h>
+#include <time.h>
 #define BLOCK_SIZE 1024
 #define NUM_BLOCKS 65536
 #define BLOCKS_PER_FILE 1024
@@ -47,7 +48,12 @@ struct inode
   int32_t blocks[BLOCKS_PER_FILE];
   uint8_t attribute;
   int size;
+  char timestamp[32];
+
+
+
 };
+
 
 struct directoryEntry* directory;
 struct inode* inodes;
@@ -83,7 +89,8 @@ void init()
       inodes[i].blocks[j] = -1;
       inodes[i].in_use = 0;
       inodes[i].attribute = 0;
-      
+      inodes[i].size = 0;
+      memset(inodes[i].timestamp, 0, 32);      
     }
   }
 
@@ -92,7 +99,6 @@ void init()
     free_blocks[j] = 1;
   }
 
-  // Mark used inodes and blocks as not free
   for (i = 0; i < NUM_FILES; i++)
   {
     if (directory[i].in_use) {
@@ -109,12 +115,8 @@ void init()
     }
   }
 
-  // directory[0].in_use = 1;
-  // strncpy(directory[0].filename, "file.txt", strlen("file.txt"));
 }
 
-
-//find free block
 int find_free_block()
 {
   for (int i = FIRST_DATA_BLOCK; i < NUM_BLOCKS; i++)
@@ -149,14 +151,6 @@ void insert(const char* filename)
 
   for (int i = 0; i < NUM_FILES; i++)
   {
-    // printf( "free_directory_entry_idx: %d\n", free_directory_entry_idx);
-    // printf( "free_inode_idx: %d\n", free_inode_idx);
-
-    // for (int j = 0; j < NUM_FILES; j++)
-    // {
-    //   printf( "directory[%d].in_use: %d\n", j, directory[j].in_use);
-    //   printf( "directory[%d].inode: %d\n", j, directory[j].inode);
-    // }
 
     if (!directory[i].in_use)
     {
@@ -186,10 +180,6 @@ void insert(const char* filename)
   long file_size = ftell(input_file);
   fseek(input_file, 0, SEEK_SET);
 
-  // printf( "free_directory_entry_idx: %d\n", free_directory_entry_idx);
-  // printf( "free_inode_idx: %d\n", free_inode_idx);
-
-
   printf("File size: %ld\n", file_size);
 
   int required_blocks = (file_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
@@ -207,6 +197,9 @@ void insert(const char* filename)
   inodes[free_inode_idx].in_use = 1;
   inodes[free_inode_idx].attribute = 0;
   inodes[free_inode_idx].size = file_size;
+  time_t raw_time = time(NULL);
+  struct tm *formatted_time = localtime(&raw_time);
+  strftime(inodes[free_inode_idx].timestamp, 32, "%H:%M:%S", formatted_time);
 
   printf("Required blocks: %d\n", required_blocks);
   for (int i = 0; i < required_blocks; i++)
@@ -223,6 +216,8 @@ void insert(const char* filename)
     inodes[free_inode_idx].blocks[i] = free_block_idx;
     fread(data[free_block_idx], sizeof(uint8_t), BLOCK_SIZE, input_file);
   }
+
+
 
   fclose(input_file);
   printf("File '%s' inserted successfully.\n", filename);
@@ -351,10 +346,16 @@ void list(int h, int a)
           for (j = 7; j >= 0; j--)
           {
             printf("%u", (inodes[directory[i].inode].attribute >> j) & 1);
+            //include time stamp
+            
           }
         }
-
+        printf("\t");
+        printf("%d", inodes[directory[i].inode].size);
+        printf("\t");
+        printf("%s", inodes[directory[i].inode].timestamp);
         printf("\n");
+
       }
       else if (!h && !(inodes[directory[i].inode].attribute & 1))
       {
@@ -372,6 +373,11 @@ void list(int h, int a)
           }
         }
 
+        printf("\t");
+        //print size
+        printf("%d", inodes[directory[i].inode].size);
+        printf("\t");
+        printf("%s", inodes[directory[i].inode].timestamp);
         printf("\n");
       }
     }
@@ -710,6 +716,8 @@ void attrib(char* attrib_str, char* filename)
   
   inodes[file_inode].attribute = attrib_value;
 }
+
+
 int main()
 {
 
@@ -761,15 +769,6 @@ int main()
       }
       token_count++;
     }
-
-    // Now print the tokenized input as a debug check
-    // \TODO Remove this for loop and replace with your filesystem functionality
-
-    // int token_index  = 0;
-    // for( token_index = 0; token_index < token_count; token_index ++ )
-    // {
-    //   printf("token[%d] = %s\n", token_index, token[token_index] );
-    // }
 
     if (token[0] == NULL)
     {
@@ -830,12 +829,6 @@ int main()
 
       list(h, a);
     }
-
-    // createfs command - Creates a new filesystem image
-    /*shall create a file system image file with the named provided by the user.
-    If the file name is not provided a message shall be printed: ERROR:
-    createfs: Filename not provided*/
-
     else if (strcmp(token[0], "createfs") == 0)
     {
       if (token[1] == NULL)
@@ -903,9 +896,6 @@ int main()
       }
     }
 
-    // reading the number of bytes
-    // read <filename> <starting byte> <number of bytes>
-    // Print <number of bytes> bytes from the file, in hexadecimal, starting at <starting byte>
     else if (strcmp("read", token[0]) == 0)
     {
       if (token_count < 4)
