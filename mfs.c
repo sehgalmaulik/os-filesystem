@@ -117,8 +117,9 @@ int find_free_block()
 {
   for (int i = FIRST_DATA_BLOCK; i < NUM_BLOCKS; i++)
   {
-    if (free_blocks[i])
+    if (!free_blocks[i])
     {
+      printf("Found free block: %d\n", i);
       return i;
     }
   }
@@ -140,17 +141,21 @@ void insert(const char* filename)
     return;
   }
 
-  if (strlen(filename) > MAX_FILENAME_SIZE)
-  {
-    printf("ERROR: Filename too long\n");
-    return;
-  }
 
   int free_inode_idx = -1;
   int free_directory_entry_idx = -1;
 
   for (int i = 0; i < NUM_FILES; i++)
   {
+    // printf( "free_directory_entry_idx: %d\n", free_directory_entry_idx);
+    // printf( "free_inode_idx: %d\n", free_inode_idx);
+
+    // for (int j = 0; j < NUM_FILES; j++)
+    // {
+    //   printf( "directory[%d].in_use: %d\n", j, directory[j].in_use);
+    //   printf( "directory[%d].inode: %d\n", j, directory[j].inode);
+    // }
+
     if (!directory[i].in_use)
     {
       free_directory_entry_idx = i;
@@ -165,12 +170,7 @@ void insert(const char* filename)
     {
       break;
     }
-  }
-
-  if (free_directory_entry_idx == -1 || free_inode_idx == -1)
-  {
-    printf("ERROR: Not enough disk space.\n");
-    return;
+    
   }
 
   FILE* input_file = fopen(filename, "rb");
@@ -184,12 +184,16 @@ void insert(const char* filename)
   long file_size = ftell(input_file);
   fseek(input_file, 0, SEEK_SET);
 
+  // printf( "free_directory_entry_idx: %d\n", free_directory_entry_idx);
+  // printf( "free_inode_idx: %d\n", free_inode_idx);
+
+
   printf("File size: %ld\n", file_size);
 
   int required_blocks = (file_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
   if (required_blocks > BLOCKS_PER_FILE)
   {
-    printf("ERROR: Not enough disk space.\n");
+    printf("ERROR: Not enough disk space 1.\n");
     fclose(input_file);
     return;
   }
@@ -207,7 +211,7 @@ void insert(const char* filename)
     int free_block_idx = find_free_block();
     if (free_block_idx == -1)
     {
-      printf("ERROR: Not enough disk space.\n");
+      printf("ERROR: Not enough disk space 2.\n");
       fclose(input_file);
       return;
     }
@@ -639,7 +643,6 @@ void undelete(char* filename)
     return;
   }
 
-  // Check if the file is already in use
   if (inodes[file_inode].in_use)
   {
     printf("ERROR: File is not deleted.\n");
@@ -649,7 +652,6 @@ void undelete(char* filename)
   directory[i].in_use = 1;
   inodes[file_inode].in_use = 1;
 
-  // Mark all blocks used by the file as in use
   for (int j = 0; j < BLOCKS_PER_FILE; j++)
   {
     if (inodes[file_inode].blocks[j] != -1)
@@ -732,10 +734,10 @@ void attrib(char* attrib_str, char* filename)
   int file_found = 0;
   int32_t file_inode = -1;
 
-  // Initialize file_inode to -1
+
   file_inode = -1;
 
-  // Search the directory for the specified file
+
   for (i = 0; i < NUM_FILES; i++)
   {
     if (strncmp(directory[i].filename, filename, strlen(filename)) == 0)
