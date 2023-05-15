@@ -50,3 +50,9 @@ Run the below command to compile a binary:
 Then run ```./a.out```
 
 You should see a prompt of ```mfs>``` where you can enter the commands.
+
+## Copyright 
+
+Copyright © 2023. All rights reserved.
+
+This software is provided for educational purposes only. It is prohibited to use this Portable Index-Allocated File System, for any college assignment or personal use. Unauthorized distribution, modification or commercial usage is strictly forbidden. Please respect the rights of the author.
